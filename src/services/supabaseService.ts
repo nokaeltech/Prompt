@@ -272,7 +272,17 @@ export class SupabaseService {
         due_date: action.dueDate ? new Date(action.dueDate).toISOString() : null,
         source_interaction_id: action.sourceInteractionId,
         source_session_id: action.sourceSessionId,
+        parent_id: action.parentId,
+        is_main_task: action.isMainTask,
+        progress: action.progress,
+        estimated_duration: action.estimatedDuration,
+        actual_duration: action.actualDuration,
+        order_index: action.orderIndex,
+        completed_at: action.completedAt ? new Date(action.completedAt).toISOString() : null,
+        tags: action.tags,
+        metadata: action.metadata,
         created_at: new Date(action.createdAt).toISOString(),
+        updated_at: new Date(action.updatedAt).toISOString(),
       });
 
     if (error) {
@@ -327,6 +337,15 @@ export class SupabaseService {
       dueDate: row.due_date ? new Date(row.due_date).getTime() : undefined,
       sourceInteractionId: row.source_interaction_id,
       sourceSessionId: row.source_session_id,
+      parentId: row.parent_id,
+      isMainTask: row.is_main_task || false,
+      progress: row.progress || 0,
+      estimatedDuration: row.estimated_duration,
+      actualDuration: row.actual_duration,
+      orderIndex: row.order_index || 0,
+      completedAt: row.completed_at ? new Date(row.completed_at).getTime() : undefined,
+      tags: row.tags || [],
+      metadata: row.metadata || {},
       createdAt: new Date(row.created_at).getTime(),
       updatedAt: new Date(row.updated_at).getTime(),
     }));
@@ -404,6 +423,15 @@ export class SupabaseService {
       dueDate: row.due_date ? new Date(row.due_date).getTime() : undefined,
       sourceInteractionId: row.source_interaction_id,
       sourceSessionId: row.source_session_id,
+      parentId: row.parent_id,
+      isMainTask: row.is_main_task || false,
+      progress: row.progress || 0,
+      estimatedDuration: row.estimated_duration,
+      actualDuration: row.actual_duration,
+      orderIndex: row.order_index || 0,
+      completedAt: row.completed_at ? new Date(row.completed_at).getTime() : undefined,
+      tags: row.tags || [],
+      metadata: row.metadata || {},
       createdAt: new Date(row.created_at).getTime(),
       updatedAt: new Date(row.updated_at).getTime(),
     }));
@@ -530,31 +558,172 @@ export class SupabaseService {
   // Test connection
   async testConnection(): Promise<boolean> {
     try {
-
-      // Check if we have valid environment variables
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      const isConfigured = supabaseUrl && supabaseAnonKey;
-      
-      if (!isConfigured) {
-        console.warn('Supabase not configured - using localStorage fallback');
-        return false;
-      }
-      
       const { error } = await supabase
         .from('interactions')
         .select('count')
         .limit(1);
-      
-      return !error;
+
+      if (error) {
+        console.error('Database connection test failed:', error);
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error('Database connection test failed:', error);
       return false;
     }
   }
 
+  // Session Management Methods
+  async pinSession(sessionId: string, pinned: boolean): Promise<Session> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
 
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    const { data, error } = await supabase
+      .from('sessions')
+      .update({ pinned })
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      title: data.title,
+      platform: data.platform,
+      startTime: new Date(data.start_time).getTime(),
+      endTime: data.end_time ? new Date(data.end_time).getTime() : undefined,
+      summary: data.summary,
+      themes: data.themes || [],
+      totalInteractions: data.total_interactions,
+      pinned: data.pinned,
+      interactions: [], // Will be populated separately if needed
+    };
+  }
+
+  async renameSession(sessionId: string, title: string): Promise<Session> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    const { data, error } = await supabase
+      .from('sessions')
+      .update({ title })
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      title: data.title,
+      platform: data.platform,
+      startTime: new Date(data.start_time).getTime(),
+      endTime: data.end_time ? new Date(data.end_time).getTime() : undefined,
+      summary: data.summary,
+      themes: data.themes || [],
+      totalInteractions: data.total_interactions,
+      pinned: data.pinned,
+      interactions: [], // Will be populated separately if needed
+    };
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    // First delete all related interactions
+    const { error: interactionsError } = await supabase
+      .from('interactions')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('user_id', userId);
+
+    if (interactionsError) throw interactionsError;
+
+    // Then delete all related action items
+    const { error: actionItemsError } = await supabase
+      .from('action_items')
+      .delete()
+      .eq('source_session_id', sessionId)
+      .eq('user_id', userId);
+
+    if (actionItemsError) throw actionItemsError;
+
+    // Finally delete the session
+    const { error: sessionError } = await supabase
+      .from('sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('user_id', userId);
+
+    if (sessionError) throw sessionError;
+  }
+
+  async getAiInteractionsBySession(sessionId: string): Promise<any[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    const { data, error } = await supabase
+      .from('interactions')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getPinnedSessions(): Promise<Session[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    const { data, error } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('pinned', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      platform: row.platform,
+      startTime: new Date(row.start_time).getTime(),
+      endTime: row.end_time ? new Date(row.end_time).getTime() : undefined,
+      summary: row.summary,
+      themes: row.themes || [],
+      totalInteractions: row.total_interactions,
+      pinned: row.pinned,
+    }));
+  }
 }
 
 export const supabaseService = new SupabaseService(); 

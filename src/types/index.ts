@@ -80,6 +80,7 @@ export interface Session {
   summary?: string;
   themes: string[];
   totalInteractions: number;
+  pinned?: boolean;
 }
 
 export interface Memory {

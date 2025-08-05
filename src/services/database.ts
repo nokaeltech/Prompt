@@ -271,6 +271,133 @@ export class DatabaseService {
     return data;
   }
 
+  // Enhanced session management for intelligence features
+  async updateSessionIntelligence(sessionId: string, updates: {
+    title?: string;
+    summary?: string;
+    themes?: string[];
+    total_interactions?: number;
+  }): Promise<DatabaseSession> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .update(updates)
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getSessionsWithIntelligence(userId: string): Promise<DatabaseSession[]> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .select(`
+        *,
+        ai_interactions(count),
+        action_items(count)
+      `)
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async searchSessions(userId: string, query: string): Promise<DatabaseSession[]> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .or(`title.ilike.%${query}%,summary.ilike.%${query}%,themes.cs.{${query}}`)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getSessionsByTheme(userId: string, theme: string): Promise<DatabaseSession[]> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .contains('themes', [theme])
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getSessionsWithTasks(userId: string): Promise<DatabaseSession[]> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .select(`
+        *,
+        action_items!inner(*)
+      `)
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getRecentSessions(userId: string, limit: number = 10): Promise<DatabaseSession[]> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getSessionStats(userId: string): Promise<{
+    totalSessions: number;
+    sessionsThisWeek: number;
+    sessionsWithTasks: number;
+    averageInteractionsPerSession: number;
+  }> {
+    // Get total sessions
+    const { count: totalSessions } = await this.supabase
+      .from('sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    // Get sessions this week
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const { count: sessionsThisWeek } = await this.supabase
+      .from('sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', weekAgo.toISOString());
+
+    // Get sessions with tasks
+    const { count: sessionsWithTasks } = await this.supabase
+      .from('sessions')
+      .select('action_items!inner(*)', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    // Get average interactions per session
+    const { data: sessions } = await this.supabase
+      .from('sessions')
+      .select('total_interactions')
+      .eq('user_id', userId);
+
+    const totalInteractions = sessions?.reduce((sum: number, session: any) => sum + (session.total_interactions || 0), 0) || 0;
+    const averageInteractionsPerSession = totalSessions ? totalInteractions / totalSessions : 0;
+
+    return {
+      totalSessions: totalSessions || 0,
+      sessionsThisWeek: sessionsThisWeek || 0,
+      sessionsWithTasks: sessionsWithTasks || 0,
+      averageInteractionsPerSession: Math.round(averageInteractionsPerSession * 100) / 100
+    };
+  }
+
   // ===== GOALS =====
   async createGoal(goal: InsertGoal): Promise<DatabaseGoal> {
     const { data, error } = await this.supabase
@@ -470,6 +597,17 @@ export class DatabaseService {
     return data || [];
   }
 
+  async getAiInteractionsBySession(sessionId: string): Promise<DatabaseAiInteraction[]> {
+    const { data, error } = await this.supabase
+      .from('ai_interactions')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
   // ===== ACTION ITEMS =====
   async createActionItem(actionItem: InsertActionItem): Promise<DatabaseActionItem> {
     const { data, error } = await this.supabase
@@ -626,6 +764,68 @@ export class DatabaseService {
       .from('usage_logs')
       .insert(usageLogs)
       .select();
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async pinSession(sessionId: string, pinned: boolean): Promise<DatabaseSession> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .update({ pinned })
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async renameSession(sessionId: string, title: string): Promise<DatabaseSession> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .update({ title })
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    // First delete all related interactions
+    const { error: interactionsError } = await this.supabase
+      .from('ai_interactions')
+      .delete()
+      .eq('session_id', sessionId);
+
+    if (interactionsError) throw interactionsError;
+
+    // Then delete all related action items
+    const { error: actionItemsError } = await this.supabase
+      .from('action_items')
+      .delete()
+      .eq('source_session_id', sessionId);
+
+    if (actionItemsError) throw actionItemsError;
+
+    // Finally delete the session
+    const { error: sessionError } = await this.supabase
+      .from('sessions')
+      .delete()
+      .eq('id', sessionId);
+
+    if (sessionError) throw sessionError;
+  }
+
+  async getPinnedSessions(userId: string): Promise<DatabaseSession[]> {
+    const { data, error } = await this.supabase
+      .from('sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('pinned', true)
+      .order('updated_at', { ascending: false });
 
     if (error) throw error;
     return data || [];

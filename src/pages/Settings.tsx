@@ -20,6 +20,7 @@ import {
 import { storage } from '../utils/storage';
 import { openaiService } from '../services/openai';
 import ApiKeyModal from '../components/ApiKeyModal';
+import TaskStructureTest from '../components/TaskStructureTest';
 
 const Settings: React.FC = () => {
   const { state, dispatch, actions } = useApp();
@@ -27,6 +28,7 @@ const Settings: React.FC = () => {
   const { ragEnabled, interactions, sessions, memories, actionItems, databaseConnected } = state;
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [showTaskTest, setShowTaskTest] = useState(false);
   const [apiKey, setApiKey] = useState('');
 
   React.useEffect(() => {
@@ -482,6 +484,38 @@ const Settings: React.FC = () => {
               )}
             </div>
           </div>
+        </motion.div>
+
+        {/* Task Structure Test */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4 }}
+          className="space-y-6"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Brain className="w-6 h-6 text-purple-400" />
+              Task Structure Analyzer Test
+            </h2>
+            <button
+              onClick={() => setShowTaskTest(!showTaskTest)}
+              className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
+            >
+              {showTaskTest ? 'Hide' : 'Show'} Test
+            </button>
+          </div>
+
+          {showTaskTest && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="p-6 bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700/50"
+            >
+              <TaskStructureTest />
+            </motion.div>
+          )}
         </motion.div>
       </div>
 

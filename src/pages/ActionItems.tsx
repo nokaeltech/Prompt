@@ -24,8 +24,8 @@ const ActionItems: React.FC = () => {
 
     // First pass: separate main tasks, subtasks, and standalone items
     actionItems.forEach(item => {
-      if (item.isMainTask || item.children?.length) {
-        mainTasks.push(item);
+      if (item.isMainTask) {
+        mainTasks.push({ ...item, children: [] });
       } else if (item.parentId) {
         subtasks.push(item);
       } else {
@@ -35,9 +35,7 @@ const ActionItems: React.FC = () => {
 
     // Second pass: build children arrays for main tasks
     mainTasks.forEach(mainTask => {
-      if (!mainTask.children) {
-        mainTask.children = subtasks.filter(subtask => subtask.parentId === mainTask.id);
-      }
+      mainTask.children = subtasks.filter(subtask => subtask.parentId === mainTask.id);
     });
 
     return { mainTasks, subtasks, standaloneItems };
@@ -315,7 +313,7 @@ const ActionItems: React.FC = () => {
                 return b.createdAt - a.createdAt;
               })
               .map((item, index) => (
-                <ActionItemCard key={item.id} item={item} index={index} />
+                <ActionItemCard key={`${item.id}-${index}`} item={item} index={index} />
               ))}
           </div>
         ) : (

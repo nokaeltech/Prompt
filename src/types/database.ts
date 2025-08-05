@@ -72,6 +72,7 @@ export interface DatabaseSession {
   summary?: string;
   themes?: string[];
   total_interactions: number;
+  pinned?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -22,6 +22,20 @@ const createMockClient = () => ({
     eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
   }),
   rpc: () => Promise.resolve({ data: null, error: null }),
+  auth: {
+    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+    signOut: () => Promise.resolve({ error: null }),
+    onAuthStateChange: (callback: any) => ({
+      data: {
+        subscription: {
+          unsubscribe: () => {}
+        }
+      }
+    }),
+    signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: null }),
+    signUp: () => Promise.resolve({ data: { user: null, session: null }, error: null }),
+  },
 });
 
 // Initialize Supabase client

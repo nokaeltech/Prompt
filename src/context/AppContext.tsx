@@ -3,6 +3,8 @@ import { AIInteraction, Session, Memory, ActionItem, SearchResult, Goal, TaskTem
 import { storage } from '../utils/storage';
 import { ragService } from '../utils/rag';
 import { initializeServices } from '../services';
+import { supabase } from '../lib/supabase';
+import { taskStructureAnalyzer, TaskAnalysisResult } from '../services/taskStructureAnalyzer';
 
 interface AppState {
   interactions: AIInteraction[];
@@ -16,6 +18,7 @@ interface AppState {
   loading: boolean;
   ragEnabled: boolean;
   databaseConnected: boolean;
+  user: any; // Add user property for authentication
 }
 
 type AppAction =
@@ -25,6 +28,7 @@ type AppAction =
   | { type: 'SET_SESSIONS'; payload: Session[] }
   | { type: 'ADD_SESSION'; payload: Session }
   | { type: 'UPDATE_SESSION'; payload: Session }
+  | { type: 'DELETE_SESSION'; payload: string }
   | { type: 'SET_MEMORIES'; payload: Memory[] }
   | { type: 'ADD_MEMORY'; payload: Memory }
   | { type: 'SET_ACTION_ITEMS'; payload: ActionItem[] }
@@ -56,6 +60,7 @@ const initialState: AppState = {
   loading: false,
   ragEnabled: true,
   databaseConnected: false,
+  user: null,
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -75,6 +80,11 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         sessions: state.sessions.map(s => s.id === action.payload.id ? action.payload : s)
       };
+    case 'DELETE_SESSION':
+      return {
+        ...state,
+        sessions: state.sessions.filter(s => s.id !== action.payload)
+      };
     case 'SET_MEMORIES':
       return { ...state, memories: action.payload };
     case 'ADD_MEMORY':
@@ -86,7 +96,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_ACTION_ITEM':
       return {
         ...state,
-        actionItems: state.actionItems.map(a => a.id === action.payload.id ? a : action.payload)
+        actionItems: state.actionItems.map(a => a.id === action.payload.id ? action.payload : a)
       };
     case 'DELETE_ACTION_ITEM':
       return {
@@ -145,13 +155,29 @@ const AppContext = createContext<{
     addActionItem: (item: Omit<ActionItem, 'id' | 'createdAt'>) => Promise<void>;
     updateActionItem: (item: ActionItem) => Promise<void>;
     deleteActionItem: (id: string) => Promise<void>;
+    addActionItemFromSession: (itemData: Omit<ActionItem, 'id' | 'createdAt' | 'updatedAt'>, sessionId: string, interactionId?: string) => Promise<ActionItem>;
+    getTasksBySession: (sessionId: string) => Promise<ActionItem[]>;
+    getTaskActivityLog: (taskId: string) => Promise<any>;
     addGoal: (goalData: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
     updateGoal: (goal: Goal) => Promise<void>;
     deleteGoal: (id: string) => Promise<void>;
+    addTaskTemplate: (templateData: Omit<TaskTemplate, 'id' | 'createdAt' | 'updatedAt' | 'usageCount'>) => Promise<void>;
+    updateTaskTemplate: (template: TaskTemplate) => Promise<void>;
+    deleteTaskTemplate: (id: string) => Promise<void>;
     searchContent: (query: string) => Promise<void>;
     extractActionItems: (response: string, interactionId: string) => Promise<ActionItem[]>;
     getRagContext: (query: string) => Promise<Memory[]>;
     testDatabaseConnection: () => Promise<boolean>;
+    enhanceSessionIntelligence: (sessionId: string) => Promise<any>;
+    searchSessions: (query: string) => Promise<any>;
+    getSessionsByTheme: (theme: string) => Promise<any>;
+    getSessionsWithTasks: () => Promise<any>;
+    getSessionStats: () => Promise<any>;
+    suggestActionItems: (text: string) => Promise<string[]>;
+    loadSessionMessages: (sessionId: string) => Promise<any[]>;
+    pinSession: (sessionId: string) => Promise<Session | null>;
+    renameSession: (sessionId: string, title: string) => Promise<Session | null>;
+    deleteSession: (sessionId: string) => Promise<void>;
   };
 } | null>(null);
 
@@ -360,6 +386,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ...itemData,
       id: crypto.randomUUID(),
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
     if (services?.dbService) {
@@ -374,15 +401,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const updateActionItem = async (item: ActionItem) => {
+    const updatedItem = {
+      ...item,
+      updatedAt: Date.now()
+    };
+
     if (services?.dbService) {
       // Update in Supabase
-      await services.dbService.saveActionItem(item);
+      await services.dbService.saveActionItem(updatedItem);
     } else {
       // Update in localStorage
-      storage.saveActionItem(item);
+      storage.saveActionItem(updatedItem);
     }
 
-    dispatch({ type: 'UPDATE_ACTION_ITEM', payload: item });
+    dispatch({ type: 'UPDATE_ACTION_ITEM', payload: updatedItem });
   };
 
   const deleteActionItem = async (id: string) => {
@@ -656,6 +688,119 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return actionItems;
   };
 
+  /**
+   * Analyze AI response and determine task structure (single task vs main task + subtasks)
+   */
+  const analyzeTaskStructure = async (response: string): Promise<TaskAnalysisResult> => {
+    try {
+      return await taskStructureAnalyzer.analyzeResponse(response);
+    } catch (error) {
+      console.error('Error analyzing task structure:', error);
+      // Fallback to simple single task
+      return {
+        structure: {
+          mainTask: 'Task from AI response',
+          subtasks: [],
+          confidence: 0.5,
+          reasoning: 'Fallback analysis due to error'
+        },
+        shouldCreateSubtasks: false,
+        priority: 'medium',
+        category: 'General'
+      };
+    }
+  };
+
+  /**
+   * Create hierarchical tasks from AI response analysis
+   */
+  const createHierarchicalTasks = async (
+    analysis: TaskAnalysisResult,
+    sessionId: string,
+    interactionId: string
+  ): Promise<{ mainTask: ActionItem; subtasks: ActionItem[] }> => {
+    const mainTaskId = crypto.randomUUID();
+    const timestamp = Date.now();
+
+    // Create main task
+    const mainTask: ActionItem = {
+      id: mainTaskId,
+      text: analysis.structure.mainTask,
+      completed: false,
+      priority: analysis.priority,
+      category: analysis.category,
+      sourceInteractionId: interactionId,
+      sourceSessionId: sessionId,
+      isMainTask: true,
+      progress: 0,
+      estimatedDuration: analysis.estimatedDuration,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    // Create subtasks if they exist
+    const subtasks: ActionItem[] = analysis.structure.subtasks.map((subtaskText, index) => ({
+      id: crypto.randomUUID(),
+      text: subtaskText,
+      completed: false,
+      priority: analysis.priority,
+      category: analysis.category,
+      sourceInteractionId: interactionId,
+      sourceSessionId: sessionId,
+      parentId: mainTaskId,
+      orderIndex: index,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }));
+
+    // Save main task
+    if (services?.dbService) {
+      await services.dbService.saveActionItem(mainTask);
+    } else {
+      storage.saveActionItem(mainTask);
+    }
+    dispatch({ type: 'ADD_ACTION_ITEM', payload: mainTask });
+
+    // Save subtasks
+    for (const subtask of subtasks) {
+      if (services?.dbService) {
+        await services.dbService.saveActionItem(subtask);
+      } else {
+        storage.saveActionItem(subtask);
+      }
+      dispatch({ type: 'ADD_ACTION_ITEM', payload: subtask });
+    }
+
+    return { mainTask, subtasks };
+  };
+
+  /**
+   * Create single task from AI response (legacy method)
+   */
+  const createSingleTask = async (
+    taskData: Omit<ActionItem, 'id' | 'createdAt'>,
+    sessionId: string,
+    interactionId: string
+  ): Promise<ActionItem> => {
+    const task: ActionItem = {
+      ...taskData,
+      id: crypto.randomUUID(),
+      sourceSessionId: sessionId,
+      sourceInteractionId: interactionId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (services?.dbService) {
+      await services.dbService.saveActionItem(task);
+    } else {
+      storage.saveActionItem(task);
+    }
+
+    dispatch({ type: 'ADD_ACTION_ITEM', payload: task });
+    return task;
+  };
+
   const getRagContext = async (query: string): Promise<Memory[]> => {
     if (services?.dbService) {
       // Get context from Supabase
@@ -682,6 +827,184 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const enhanceSessionIntelligence = async (_sessionId: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      if (services?.dbService) {
+        // For now, skip AI enhancement if services aren't available
+        // TODO: Implement AI enhancement when services are properly configured
+        console.log('Session intelligence enhancement would happen here');
+        return null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error enhancing session intelligence:', error);
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const searchSessions = async (query: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      if (services?.dbService) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
+        if (userId) {
+          const sessions = await services.dbService.searchSessions(userId, query);
+          return sessions;
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error('Error searching sessions:', error);
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const getSessionsByTheme = async (theme: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      if (services?.dbService) {
+        const sessions = await services.dbService.getSessionsByTheme(state.user?.id || '', theme);
+        return sessions;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error getting sessions by theme:', error);
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const getSessionsWithTasks = async () => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      if (services?.dbService) {
+        const sessions = await services.dbService.getSessionsWithTasks(state.user?.id || '');
+        return sessions;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error getting sessions with tasks:', error);
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const getSessionStats = async () => {
+    try {
+      if (services?.dbService) {
+        const stats = await services.dbService.getSessionStats(state.user?.id || '');
+        return stats;
+      }
+      return {};
+    } catch (error) {
+      console.error('Error getting session stats:', error);
+      throw error;
+    }
+  };
+
+  const suggestActionItems = async (text: string) => {
+    try {
+      if (services?.ragService) {
+        const suggestions = await services.ragService.suggestActionItems(text);
+        return suggestions;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error suggesting action items:', error);
+      throw error;
+    }
+  };
+
+  const loadSessionMessages = async (sessionId: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      console.log('loadSessionMessages called with sessionId:', sessionId);
+      console.log('services available:', !!services?.dbService);
+      
+      if (services?.dbService) {
+        // Load AI interactions for this session
+        console.log('Calling getAiInteractionsBySession...');
+        const interactions = await services.dbService.getAiInteractionsBySession(sessionId);
+        console.log('Retrieved interactions:', interactions);
+        
+        // Convert interactions to chat messages format
+        const chatMessages = interactions.flatMap((interaction: any) => [
+          {
+            id: `user-${interaction.id}`,
+            role: 'user' as const,
+            content: interaction.prompt,
+            timestamp: new Date(interaction.created_at).getTime(),
+            interactionId: interaction.id
+          },
+          {
+            id: `assistant-${interaction.id}`,
+            role: 'assistant' as const,
+            content: interaction.response,
+            timestamp: new Date(interaction.created_at).getTime(),
+            interactionId: interaction.id
+          }
+        ]);
+        
+        console.log('Converted to chat messages:', chatMessages);
+        return chatMessages;
+      } else {
+        console.log('No database service available, returning empty array');
+        return [];
+      }
+    } catch (error) {
+      console.error('Error loading session messages:', error);
+      return [];
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const pinSession = async (sessionId: string) => {
+    try {
+      if (services?.dbService) {
+        const updatedSession = await services.dbService.pinSession(sessionId, true);
+        dispatch({ type: 'UPDATE_SESSION', payload: updatedSession });
+        return updatedSession;
+      }
+    } catch (error) {
+      console.error('Error pinning session:', error);
+      throw error;
+    }
+  };
+
+  const renameSession = async (sessionId: string, title: string) => {
+    try {
+      if (services?.dbService) {
+        const updatedSession = await services.dbService.renameSession(sessionId, title);
+        dispatch({ type: 'UPDATE_SESSION', payload: updatedSession });
+        return updatedSession;
+      }
+    } catch (error) {
+      console.error('Error renaming session:', error);
+      throw error;
+    }
+  };
+
+  const deleteSession = async (sessionId: string) => {
+    try {
+      if (services?.dbService) {
+        await services.dbService.deleteSession(sessionId);
+        dispatch({ type: 'DELETE_SESSION', payload: sessionId });
+      }
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      throw error;
+    }
+  };
 
 
   useEffect(() => {
@@ -707,8 +1030,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteTaskTemplate,
     searchContent,
     extractActionItems,
+    analyzeTaskStructure,
+    createHierarchicalTasks,
+    createSingleTask,
     getRagContext,
     testDatabaseConnection,
+    enhanceSessionIntelligence,
+    searchSessions,
+    getSessionsByTheme,
+    getSessionsWithTasks,
+    getSessionStats,
+    suggestActionItems,
+    loadSessionMessages,
+    pinSession,
+    renameSession,
+    deleteSession,
   };
 
   return (

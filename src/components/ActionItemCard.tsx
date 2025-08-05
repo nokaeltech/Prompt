@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { ActionItem } from '../types';
-import { Check, Clock, Flag, Calendar, Trash2, Link, MessageSquare, ChevronDown, ChevronRight, Plus, ExternalLink } from 'lucide-react';
+import { Check, Clock, Flag, Calendar, Trash2, Link, MessageSquare, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ActionItemCardProps {
@@ -17,11 +17,13 @@ const ActionItemCard: React.FC<ActionItemCardProps> = ({ item, index }) => {
   const [editText, setEditText] = useState(item.text);
 
   const handleToggleComplete = async () => {
-    await actions.updateActionItem({
+    const updatedItem = {
       ...item,
       completed: !item.completed,
       completedAt: !item.completed ? Date.now() : undefined
-    });
+    };
+    
+    await actions.updateActionItem(updatedItem);
   };
 
   const handleDelete = async () => {
@@ -43,7 +45,7 @@ const ActionItemCard: React.FC<ActionItemCardProps> = ({ item, index }) => {
   const handleAddSubtask = async () => {
     const subtaskText = prompt('Enter subtask:');
     if (subtaskText?.trim()) {
-      const newSubtask: Omit<ActionItem, 'id' | 'createdAt' | 'updatedAt'> = {
+      const newSubtask: Omit<ActionItem, 'id' | 'createdAt'> = {
         text: subtaskText.trim(),
         completed: false,
         priority: 'medium',
@@ -51,7 +53,6 @@ const ActionItemCard: React.FC<ActionItemCardProps> = ({ item, index }) => {
         parentId: item.id,
         orderIndex: (item.children?.length || 0) + 1,
         tags: [],
-        createdAt: Date.now(),
         updatedAt: Date.now()
       };
       await actions.addActionItem(newSubtask);
@@ -236,7 +237,7 @@ const ActionItemCard: React.FC<ActionItemCardProps> = ({ item, index }) => {
                       <h4 className="text-xs font-medium text-slate-400 mb-2">Subtasks</h4>
                       {item.children!.map((subtask, subtaskIndex) => (
                         <ActionItemCard 
-                          key={subtask.id} 
+                          key={`${subtask.id}-subtask-${subtaskIndex}`} 
                           item={subtask} 
                           index={subtaskIndex} 
                         />
