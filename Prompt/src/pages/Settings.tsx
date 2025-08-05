@@ -6,30 +6,32 @@ import {
   Brain, 
   Trash2, 
   Download, 
-  Upload,
   Shield,
   Zap,
   Database,
   Bell,
   Key
 } from 'lucide-react';
-import { storage } from '../utils/storage';
+import { storageAdapter } from '../services/storageAdapter';
 import { openaiService } from '../services/openai';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const Settings: React.FC = () => {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, actions } = useApp();
   const { ragEnabled, interactions, sessions, memories, actionItems } = state;
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKey, setApiKey] = useState('');
+  const [isUsingSupabase, setIsUsingSupabase] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
 
   React.useEffect(() => {
     const savedKey = localStorage.getItem('openai_api_key');
     if (savedKey) {
       setApiKey(savedKey);
     }
-  }, []);
+    setIsUsingSupabase(actions.isUsingSupabase());
+  }, [actions]);
 
   const handleToggleRAG = () => {
     dispatch({ type: 'TOGGLE_RAG', payload: !ragEnabled });
@@ -58,7 +60,7 @@ const Settings: React.FC = () => {
 
   const handleClearAllData = () => {
     if (showConfirmClear) {
-      storage.clearAllData();
+      storageAdapter.clearAllData();
       dispatch({ type: 'SET_INTERACTIONS', payload: [] });
       dispatch({ type: 'SET_SESSIONS', payload: [] });
       dispatch({ type: 'SET_MEMORIES', payload: [] });
@@ -66,6 +68,34 @@ const Settings: React.FC = () => {
       setShowConfirmClear(false);
     } else {
       setShowConfirmClear(true);
+    }
+  };
+
+  const handleSwitchToSupabase = async () => {
+    setIsSwitching(true);
+    try {
+      const success = await actions.switchToSupabase();
+      if (success) {
+        setIsUsingSupabase(true);
+        await actions.loadData();
+      }
+    } catch (error) {
+      console.error('Failed to switch to Supabase:', error);
+    } finally {
+      setIsSwitching(false);
+    }
+  };
+
+  const handleSwitchToLocalStorage = async () => {
+    setIsSwitching(true);
+    try {
+      await actions.switchToLocalStorage();
+      setIsUsingSupabase(false);
+      await actions.loadData();
+    } catch (error) {
+      console.error('Failed to switch to localStorage:', error);
+    } finally {
+      setIsSwitching(false);
     }
   };
 
@@ -217,6 +247,75 @@ const Settings: React.FC = () => {
                     <span>Standard responses without memory context</span>
                   </div>
                 )}
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700/50">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Data Storage</h3>
+                  <p className="text-sm text-slate-300">
+                    Choose where to store your data - locally or in the cloud
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isUsingSupabase ? (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">
+                      <Database className="w-4 h-4" />
+                      <span>Supabase</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-slate-500/20 text-slate-300 rounded-full text-sm">
+                      <Database className="w-4 h-4" />
+                      <span>Local</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-white">Local Storage</h4>
+                    <p className="text-xs text-slate-400">Data stored in your browser</p>
+                  </div>
+                  <button
+                    onClick={handleSwitchToLocalStorage}
+                    disabled={!isUsingSupabase || isSwitching}
+                    className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+                      !isUsingSupabase 
+                        ? 'bg-green-500/20 text-green-300 border border-green-500/50' 
+                        : 'bg-slate-600 hover:bg-slate-500 text-white'
+                    } ${isSwitching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isSwitching ? 'Switching...' : 'Use Local'}
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-white">Supabase Cloud</h4>
+                    <p className="text-xs text-slate-400">Data stored securely in the cloud</p>
+                  </div>
+                  <button
+                    onClick={handleSwitchToSupabase}
+                    disabled={isUsingSupabase || isSwitching}
+                    className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+                      isUsingSupabase 
+                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50' 
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    } ${isSwitching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isSwitching ? 'Switching...' : 'Use Supabase'}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mt-4 p-3 bg-slate-700/30 rounded-lg">
+                <p className="text-xs text-slate-400">
+                  <strong>Note:</strong> Switching storage will migrate your existing data. 
+                  Make sure to set up your Supabase environment variables before switching to cloud storage.
+                </p>
               </div>
             </div>
 

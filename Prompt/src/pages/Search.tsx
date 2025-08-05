@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
-import { Search as SearchIcon, Filter, Calendar, Tag, Brain } from 'lucide-react';
-import { format } from 'date-fns';
+import { Search as SearchIcon, Filter, Brain } from 'lucide-react';
 import SearchResult from '../components/SearchResult';
 
 const Search: React.FC = () => {

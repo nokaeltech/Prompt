@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
-import { Plus, Calendar, MessageSquare, Clock, Tag, Brain } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Calendar, MessageSquare, Clock, Brain } from 'lucide-react';
 import CreateSessionModal from '../components/CreateSessionModal';
 import SessionCard from '../components/SessionCard';
 
@@ -12,7 +11,6 @@ const Sessions: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const activeSessions = sessions.filter(s => !s.endTime);
-  const completedSessions = sessions.filter(s => s.endTime);
 
   return (
     <div className="space-y-8">

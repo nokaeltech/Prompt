@@ -36,7 +36,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSave, curr
         onClose();
         setTestResult(null);
       }, 1000);
-    } catch (error) {
+    } catch {
       setTestResult('error');
     } finally {
       setTesting(false);

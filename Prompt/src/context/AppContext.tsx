@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { AIInteraction, Session, Memory, ActionItem, SearchResult } from '../types';
-import { storage } from '../utils/storage';
+import { storageAdapter } from '../services/storageAdapter';
 import { ragService } from '../utils/rag';
 
 interface AppState {
@@ -112,10 +112,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const [interactions, sessions, memories, actionItems] = await Promise.all([
-        Promise.resolve(storage.getInteractions()),
-        Promise.resolve(storage.getSessions()),
-        Promise.resolve(storage.getMemories()),
-        Promise.resolve(storage.getActionItems()),
+        storageAdapter.getInteractions(),
+        storageAdapter.getSessions(),
+        storageAdapter.getMemories(),
+        storageAdapter.getActionItems(),
       ]);
 
       dispatch({ type: 'SET_INTERACTIONS', payload: interactions });
@@ -142,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     interaction.embedding = embedding;
 
-    storage.saveInteraction(interaction);
+    await storageAdapter.saveInteraction(interaction);
     dispatch({ type: 'ADD_INTERACTION', payload: interaction });
 
     // Create memory from interaction
@@ -157,15 +157,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updatedAt: Date.now(),
     };
 
-    storage.saveMemory(memory);
+    await storageAdapter.saveMemory(memory);
     dispatch({ type: 'ADD_MEMORY', payload: memory });
 
     // Extract action items
     const actionItems = await extractActionItems(interaction.response, interaction.id);
-    actionItems.forEach(item => {
-      storage.saveActionItem(item);
+    for (const item of actionItems) {
+      await storageAdapter.saveActionItem(item);
       dispatch({ type: 'ADD_ACTION_ITEM', payload: item });
-    });
+    }
   };
 
   const createSession = async (title: string, platform: string): Promise<Session> => {
@@ -179,7 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       totalInteractions: 0,
     };
 
-    storage.saveSession(session);
+    await storageAdapter.saveSession(session);
     dispatch({ type: 'ADD_SESSION', payload: session });
     dispatch({ type: 'SET_CURRENT_SESSION', payload: session });
 
@@ -187,7 +187,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSession = async (session: Session) => {
-    storage.saveSession(session);
+    await storageAdapter.saveSession(session);
     dispatch({ type: 'UPDATE_SESSION', payload: session });
   };
 
@@ -198,17 +198,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createdAt: Date.now(),
     };
 
-    storage.saveActionItem(item);
+    await storageAdapter.saveActionItem(item);
     dispatch({ type: 'ADD_ACTION_ITEM', payload: item });
   };
 
   const updateActionItem = async (item: ActionItem) => {
-    storage.saveActionItem(item);
+    await storageAdapter.saveActionItem(item);
     dispatch({ type: 'UPDATE_ACTION_ITEM', payload: item });
   };
 
   const deleteActionItem = async (id: string) => {
-    storage.deleteActionItem(id);
+    await storageAdapter.deleteActionItem(id);
     dispatch({ type: 'DELETE_ACTION_ITEM', payload: id });
   };
 
@@ -271,6 +271,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     searchContent,
     extractActionItems,
     getRagContext,
+    switchToSupabase: storageAdapter.switchToSupabase.bind(storageAdapter),
+    switchToLocalStorage: storageAdapter.switchToLocalStorage.bind(storageAdapter),
+    isUsingSupabase: storageAdapter.isUsingSupabase.bind(storageAdapter),
   };
 
   return (
