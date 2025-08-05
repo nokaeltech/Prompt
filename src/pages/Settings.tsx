@@ -1,25 +1,30 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { 
   Settings as SettingsIcon, 
   Brain, 
   Trash2, 
   Download, 
-  Upload,
   Shield,
   Zap,
   Database,
   Bell,
-  Key
+  Key,
+  HardDrive,
+  AlertCircle,
+  CheckCircle,
+  User
 } from 'lucide-react';
 import { storage } from '../utils/storage';
 import { openaiService } from '../services/openai';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const Settings: React.FC = () => {
-  const { state, dispatch } = useApp();
-  const { ragEnabled, interactions, sessions, memories, actionItems } = state;
+  const { state, dispatch, actions } = useApp();
+  const { user } = useAuth();
+  const { ragEnabled, interactions, sessions, memories, actionItems, databaseConnected } = state;
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKey, setApiKey] = useState('');
@@ -101,11 +106,162 @@ const Settings: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Data Overview */}
+      {/* System Status */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
+        className="space-y-4"
+      >
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Zap className="w-6 h-6 text-yellow-400" />
+          System Status
+        </h2>
+        
+        <div className="flex flex-wrap items-center gap-3">
+                     {/* Local Storage Status */}
+           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+             databaseConnected
+               ? 'bg-green-500/10 border-green-500/30'
+               : 'bg-blue-500/10 border-blue-500/30'
+           }`}>
+             {databaseConnected ? (
+               <CheckCircle className="w-4 h-4 text-green-400" />
+             ) : (
+               <HardDrive className="w-4 h-4 text-blue-400" />
+             )}
+             <span className={`text-sm font-medium ${
+               databaseConnected
+                 ? 'text-green-400'
+                 : 'text-blue-400'
+             }`}>
+               {databaseConnected ? 'Database' : 'Local Storage'}
+             </span>
+           </div>
+
+           {/* Test Connection Button */}
+           {!databaseConnected && (
+            <button
+              onClick={actions.testDatabaseConnection}
+              className="flex items-center gap-2 px-3 py-2 bg-orange-500/20 border border-orange-500/30 rounded-lg text-orange-300 hover:bg-orange-500/30 transition-colors"
+            >
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm">Test Connection</span>
+            </button>
+          )}
+
+          {/* API Key Status */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+            apiKey
+              ? 'bg-green-500/10 border-green-500/30'
+              : 'bg-red-500/10 border-red-500/30'
+          }`}>
+            <Key className={`w-4 h-4 ${apiKey ? 'text-green-400' : 'text-red-400'}`} />
+            <span className={`text-sm font-medium ${apiKey ? 'text-green-400' : 'text-red-400'}`}>
+              {apiKey ? 'API Key Set' : 'API Key Not Set'}
+            </span>
+          </div>
+
+          {/* Model Selection */}
+          {apiKey && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg">
+              <span className="text-sm text-slate-300">GPT-3.5 Turbo</span>
+                             <select
+                 className="bg-transparent text-slate-300 text-sm focus:outline-none"
+                 onChange={() => {
+                   // Handle model selection if needed
+                 }}
+                 aria-label="Select AI model"
+                 title="Select AI model"
+               >
+                {openaiService.getAvailableModels().map(model => (
+                  <option key={model.id} value={model.id}>{model.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* RAG Status */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+            ragEnabled 
+              ? 'bg-green-500/10 border-green-500/30' 
+              : 'bg-slate-700/50 border-slate-600/50'
+          }`}>
+            <Brain className={`w-4 h-4 ${ragEnabled ? 'text-green-400' : 'text-slate-400'}`} />
+            <span className={`text-sm font-medium ${ragEnabled ? 'text-green-400' : 'text-slate-400'}`}>
+              RAG {ragEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* User Account */}
+      {user && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-4"
+        >
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <User className="w-6 h-6 text-blue-400" />
+            User Account
+          </h2>
+          
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
+                  {user.email?.substring(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{user.email}</h3>
+                  <p className="text-sm text-slate-400">
+                    {user.email_confirmed_at ? 'Email verified' : 'Email not verified'}
+                  </p>
+                </div>
+              </div>
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+                user.email_confirmed_at
+                  ? 'bg-green-500/10 border-green-500/30'
+                  : 'bg-yellow-500/10 border-yellow-500/30'
+              }`}>
+                {user.email_confirmed_at ? (
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-yellow-400" />
+                )}
+                <span className={`text-sm font-medium ${
+                  user.email_confirmed_at ? 'text-green-400' : 'text-yellow-400'
+                }`}>
+                  {user.email_confirmed_at ? 'Verified' : 'Unverified'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-sm text-slate-400">User ID</p>
+                <p className="text-sm text-white font-mono bg-slate-700/50 p-2 rounded-lg">
+                  {user.id}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-slate-400">Last Sign In</p>
+                <p className="text-sm text-white">
+                  {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : 'Never'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Data Overview */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
         className="grid grid-cols-2 md:grid-cols-4 gap-4"
       >
         {dataStats.map((stat, index) => {
@@ -115,7 +271,7 @@ const Settings: React.FC = () => {
               key={stat.label}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.15 + index * 0.05 }}
+              transition={{ delay: 0.2 + index * 0.05 }}
               className="p-4 bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700/50"
             >
               <div className={`inline-flex p-2 rounded-lg bg-${stat.color}-500/20 mb-3`}>

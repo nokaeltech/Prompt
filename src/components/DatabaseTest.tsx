@@ -25,7 +25,7 @@ const DatabaseTest: React.FC = () => {
       const connectionTest = await actions.testDatabaseConnection();
       setTestResults(prev => ({ ...prev, connection: connectionTest }));
 
-      if (connectionTest && state.useDatabase) {
+      if (connectionTest) {
         // Test 2: Create test data
         try {
           await actions.addActionItem({
@@ -90,39 +90,35 @@ const DatabaseTest: React.FC = () => {
           </div>
         </div>
 
-        {state.useDatabase && (
-          <>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-300">Create Test</span>
-              <div className="flex items-center gap-2">
-                {getTestIcon(testResults.createTest)}
-                <span className={`text-sm ${getTestColor(testResults.createTest)}`}>
-                  {testResults.loading ? 'Testing...' : testResults.createTest ? 'Success' : 'Failed'}
-                </span>
-              </div>
-            </div>
+        <div className="flex items-center justify-between">
+          <span className="text-slate-300">Create Test</span>
+          <div className="flex items-center gap-2">
+            {getTestIcon(testResults.createTest)}
+            <span className={`text-sm ${getTestColor(testResults.createTest)}`}>
+              {testResults.loading ? 'Testing...' : testResults.createTest ? 'Success' : 'Failed'}
+            </span>
+          </div>
+        </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-slate-300">Search Test</span>
-              <div className="flex items-center gap-2">
-                {getTestIcon(testResults.searchTest)}
-                <span className={`text-sm ${getTestColor(testResults.searchTest)}`}>
-                  {testResults.loading ? 'Testing...' : testResults.searchTest ? 'Success' : 'Failed'}
-                </span>
-              </div>
-            </div>
-          </>
-        )}
+        <div className="flex items-center justify-between">
+          <span className="text-slate-300">Search Test</span>
+          <div className="flex items-center gap-2">
+            {getTestIcon(testResults.searchTest)}
+            <span className={`text-sm ${getTestColor(testResults.searchTest)}`}>
+              {testResults.loading ? 'Testing...' : testResults.searchTest ? 'Success' : 'Failed'}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div className="bg-slate-700/50 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
-            {state.useDatabase ? <Database className="w-4 h-4 text-blue-400" /> : <HardDrive className="w-4 h-4 text-green-400" />}
+            <Database className="w-4 h-4 text-blue-400" />
             <span className="text-slate-300">Storage Mode</span>
           </div>
           <span className="text-white font-medium">
-            {state.useDatabase ? 'Database' : 'Local Storage'}
+            Supabase
           </span>
         </div>
 

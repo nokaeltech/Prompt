@@ -1,19 +1,19 @@
 // Service exports for the Aqeel RAG app
-export { LocalDatabaseService } from './localDatabase';
+export { SupabaseService } from './supabaseService';
 export { RAGService } from './rag';
 export { MigrationService } from '../utils/migration';
 
 // Service initialization helper
-import { LocalDatabaseService } from './localDatabase';
+import { SupabaseService } from './supabaseService';
 import { RAGService } from './rag';
 import OpenAI from 'openai';
 
-let dbService: LocalDatabaseService | null = null;
+let dbService: SupabaseService | null = null;
 let ragService: RAGService | null = null;
 
 export function initializeServices() {
   if (!dbService) {
-    dbService = new LocalDatabaseService();
+    dbService = new SupabaseService();
   }
   
   if (!ragService) {

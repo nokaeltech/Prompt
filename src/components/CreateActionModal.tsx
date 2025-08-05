@@ -6,11 +6,14 @@ import { X, Target, Flag, Tag } from 'lucide-react';
 interface CreateActionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  responseContent?: string;
+  sessionId?: string;
+  interactionId?: string;
 }
 
-const CreateActionModal: React.FC<CreateActionModalProps> = ({ isOpen, onClose }) => {
+const CreateActionModal: React.FC<CreateActionModalProps> = ({ isOpen, onClose, responseContent, sessionId, interactionId }) => {
   const { actions } = useApp();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(responseContent ? '' : '');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [category, setCategory] = useState('Development');
   const [dueDate, setDueDate] = useState('');
@@ -29,14 +32,15 @@ const CreateActionModal: React.FC<CreateActionModalProps> = ({ isOpen, onClose }
 
     setLoading(true);
     try {
-      await actions.addActionItem({
-        text: text.trim(),
-        priority,
-        category,
-        completed: false,
-        sourceInteractionId: '',
-        dueDate: dueDate ? new Date(dueDate).getTime() : undefined
-      });
+              await actions.addActionItem({
+          text: text.trim(),
+          priority,
+          category,
+          completed: false,
+          sourceInteractionId: interactionId || '',
+          sourceSessionId: sessionId || '',
+          dueDate: dueDate ? new Date(dueDate).getTime() : undefined
+        });
       
       setText('');
       setPriority('medium');
@@ -77,6 +81,8 @@ const CreateActionModal: React.FC<CreateActionModalProps> = ({ isOpen, onClose }
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                aria-label="Close modal"
+                title="Close modal"
               >
                 <X className="w-5 h-5 text-slate-400" />
               </button>
@@ -107,6 +113,7 @@ const CreateActionModal: React.FC<CreateActionModalProps> = ({ isOpen, onClose }
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as any)}
                     className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                    aria-label="Select priority level"
                   >
                     {priorities.map(p => (
                       <option key={p.value} value={p.value}>{p.label}</option>
@@ -123,6 +130,7 @@ const CreateActionModal: React.FC<CreateActionModalProps> = ({ isOpen, onClose }
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                    aria-label="Select category"
                   >
                     {categories.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
@@ -140,6 +148,7 @@ const CreateActionModal: React.FC<CreateActionModalProps> = ({ isOpen, onClose }
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                  aria-label="Select due date"
                 />
               </div>
 

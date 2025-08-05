@@ -1,22 +1,21 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect, useState } from 'react';
-import { AIInteraction, Session, Memory, ActionItem, SearchResult } from '../types';
+import { AIInteraction, Session, Memory, ActionItem, SearchResult, Goal, TaskTemplate } from '../types';
 import { storage } from '../utils/storage';
 import { ragService } from '../utils/rag';
-import { initializeServices, testDatabaseConnection } from '../services';
-import { MigrationService } from '../utils/migration';
+import { initializeServices } from '../services';
 
 interface AppState {
   interactions: AIInteraction[];
   sessions: Session[];
   memories: Memory[];
   actionItems: ActionItem[];
+  goals: Goal[];
+  taskTemplates: TaskTemplate[];
   currentSession: Session | null;
   searchResults: SearchResult[];
   loading: boolean;
   ragEnabled: boolean;
   databaseConnected: boolean;
-  useDatabase: boolean;
-  migrationStatus: 'idle' | 'migrating' | 'completed' | 'error';
 }
 
 type AppAction =
@@ -32,25 +31,31 @@ type AppAction =
   | { type: 'ADD_ACTION_ITEM'; payload: ActionItem }
   | { type: 'UPDATE_ACTION_ITEM'; payload: ActionItem }
   | { type: 'DELETE_ACTION_ITEM'; payload: string }
+  | { type: 'SET_GOALS'; payload: Goal[] }
+  | { type: 'ADD_GOAL'; payload: Goal }
+  | { type: 'UPDATE_GOAL'; payload: Goal }
+  | { type: 'DELETE_GOAL'; payload: string }
+  | { type: 'SET_TASK_TEMPLATES'; payload: TaskTemplate[] }
+  | { type: 'ADD_TASK_TEMPLATE'; payload: TaskTemplate }
+  | { type: 'UPDATE_TASK_TEMPLATE'; payload: TaskTemplate }
+  | { type: 'DELETE_TASK_TEMPLATE'; payload: string }
   | { type: 'SET_CURRENT_SESSION'; payload: Session | null }
   | { type: 'SET_SEARCH_RESULTS'; payload: SearchResult[] }
   | { type: 'TOGGLE_RAG'; payload: boolean }
-  | { type: 'SET_DATABASE_CONNECTED'; payload: boolean }
-  | { type: 'SET_USE_DATABASE'; payload: boolean }
-  | { type: 'SET_MIGRATION_STATUS'; payload: AppState['migrationStatus'] };
+  | { type: 'SET_DATABASE_CONNECTED'; payload: boolean };
 
 const initialState: AppState = {
   interactions: [],
   sessions: [],
   memories: [],
   actionItems: [],
+  goals: [],
+  taskTemplates: [],
   currentSession: null,
   searchResults: [],
   loading: false,
   ragEnabled: true,
   databaseConnected: false,
-  useDatabase: false,
-  migrationStatus: 'idle',
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -88,6 +93,34 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         actionItems: state.actionItems.filter(a => a.id !== action.payload)
       };
+    case 'SET_GOALS':
+      return { ...state, goals: action.payload };
+    case 'ADD_GOAL':
+      return { ...state, goals: [...state.goals, action.payload] };
+    case 'UPDATE_GOAL':
+      return {
+        ...state,
+        goals: state.goals.map(g => g.id === action.payload.id ? action.payload : g)
+      };
+    case 'DELETE_GOAL':
+      return {
+        ...state,
+        goals: state.goals.filter(g => g.id !== action.payload)
+      };
+    case 'SET_TASK_TEMPLATES':
+      return { ...state, taskTemplates: action.payload };
+    case 'ADD_TASK_TEMPLATE':
+      return { ...state, taskTemplates: [...state.taskTemplates, action.payload] };
+    case 'UPDATE_TASK_TEMPLATE':
+      return {
+        ...state,
+        taskTemplates: state.taskTemplates.map(t => t.id === action.payload.id ? action.payload : t)
+      };
+    case 'DELETE_TASK_TEMPLATE':
+      return {
+        ...state,
+        taskTemplates: state.taskTemplates.filter(t => t.id !== action.payload)
+      };
     case 'SET_CURRENT_SESSION':
       return { ...state, currentSession: action.payload };
     case 'SET_SEARCH_RESULTS':
@@ -96,10 +129,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, ragEnabled: action.payload };
     case 'SET_DATABASE_CONNECTED':
       return { ...state, databaseConnected: action.payload };
-    case 'SET_USE_DATABASE':
-      return { ...state, useDatabase: action.payload };
-    case 'SET_MIGRATION_STATUS':
-      return { ...state, migrationStatus: action.payload };
     default:
       return state;
   }
@@ -110,19 +139,19 @@ const AppContext = createContext<{
   dispatch: React.Dispatch<AppAction>;
   actions: {
     loadData: () => Promise<void>;
-    addInteraction: (interaction: Omit<AIInteraction, 'id' | 'timestamp'>) => Promise<void>;
+    addInteraction: (interaction: Omit<AIInteraction, 'id' | 'timestamp'>) => Promise<AIInteraction>;
     createSession: (title: string, platform: string) => Promise<Session>;
     updateSession: (session: Session) => Promise<void>;
     addActionItem: (item: Omit<ActionItem, 'id' | 'createdAt'>) => Promise<void>;
     updateActionItem: (item: ActionItem) => Promise<void>;
     deleteActionItem: (id: string) => Promise<void>;
+    addGoal: (goalData: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+    updateGoal: (goal: Goal) => Promise<void>;
+    deleteGoal: (id: string) => Promise<void>;
     searchContent: (query: string) => Promise<void>;
     extractActionItems: (response: string, interactionId: string) => Promise<ActionItem[]>;
     getRagContext: (query: string) => Promise<Memory[]>;
     testDatabaseConnection: () => Promise<boolean>;
-    migrateToDatabase: (userId: string) => Promise<void>;
-    switchToDatabase: () => Promise<void>;
-    switchToLocalStorage: () => Promise<void>;
   };
 } | null>(null);
 
@@ -137,19 +166,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const { dbService, ragService } = initializeServices();
         setServices({ dbService, ragService });
         
-        // Test database connection (will fail gracefully if API server is not running)
+        // Test database connection
         const isConnected = await testDatabaseConnection();
         dispatch({ type: 'SET_DATABASE_CONNECTED', payload: isConnected });
         
-        // Check if user wants to use database (stored in localStorage)
-        const useDatabase = localStorage.getItem('useDatabase') === 'true';
-        dispatch({ type: 'SET_USE_DATABASE', payload: useDatabase && isConnected });
-        
       } catch (error) {
         console.error('Failed to initialize services:', error);
-        // Fallback to localStorage mode
         dispatch({ type: 'SET_DATABASE_CONNECTED', payload: false });
-        dispatch({ type: 'SET_USE_DATABASE', payload: false });
       }
     };
 
@@ -159,104 +182,81 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadData = async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      if (state.useDatabase && services?.dbService) {
-        // Load from database
-        const userId = 'default-user'; // TODO: Implement proper user management
-        
-        const [dbInteractions, dbSessions, dbMemories, dbActionItems] = await Promise.all([
-          services.dbService.getAiInteractions(userId),
-          services.dbService.getSessions(userId),
-          services.dbService.getMemoriesBySourceType(userId, 'interaction'),
-          services.dbService.getActionItems(userId),
+      if (services?.dbService) {
+        // Load from Supabase
+        const [interactions, sessions, memories, actionItems, dbGoals] = await Promise.all([
+          services.dbService.getInteractions(),
+          services.dbService.getSessions(),
+          services.dbService.getMemories(),
+          services.dbService.getActionItems(),
+          services.dbService.getGoals(),
         ]);
 
-        // Convert database types to app types
-        const interactions: AIInteraction[] = dbInteractions.map((db: any) => ({
-          id: db.id,
-          prompt: db.prompt,
-          response: db.response,
-          platform: db.platform,
-          model: db.model,
-          timestamp: db.timestamp || new Date(db.created_at).getTime(),
-          sessionId: db.session_id,
-          tags: db.tags || [],
-          summary: db.summary,
-          embedding: db.embedding,
-        }));
-
-        const sessions: Session[] = dbSessions.map((db: any) => ({
-          id: db.id,
-          title: db.title || 'Untitled Session',
-          platform: db.platform || 'Unknown',
-          startTime: new Date(db.start_time).getTime(),
-          endTime: db.end_time ? new Date(db.end_time).getTime() : undefined,
-          interactions: [],
-          summary: db.summary,
-          themes: db.themes || [],
-          totalInteractions: db.total_interactions,
-        }));
-
-        const memories: Memory[] = dbMemories.map((db: any) => ({
-          id: db.id,
-          content: db.content,
-          embedding: db.embedding || [],
-          source: db.source_type,
-          sourceId: db.source_id,
-          tags: db.tags || [],
-          relevanceScore: db.relevance_score,
-          createdAt: new Date(db.created_at).getTime(),
-          updatedAt: new Date(db.updated_at).getTime(),
-        }));
-
-        const actionItems: ActionItem[] = dbActionItems.map((db: any) => ({
-          id: db.id,
-          text: db.text,
-          completed: db.completed,
-          priority: db.priority,
-          category: db.category || 'General',
-          dueDate: db.due_date ? new Date(db.due_date).getTime() : undefined,
-          sourceInteractionId: db.source_interaction_id,
-          createdAt: new Date(db.created_at).getTime(),
+        // Convert database goals to app format
+        const goals = dbGoals.map((dbGoal: any) => ({
+          id: dbGoal.id,
+          title: dbGoal.title,
+          description: dbGoal.description || '',
+          category: dbGoal.category,
+          tags: dbGoal.tags || [],
+          targetDate: dbGoal.target_date ? new Date(dbGoal.target_date).getTime() : undefined,
+          completed: dbGoal.completed,
+          progress: dbGoal.progress,
+          priority: dbGoal.priority,
+          goalType: dbGoal.goal_type,
+          parentGoalId: dbGoal.parent_goal_id || undefined,
+          phase: dbGoal.phase,
+          startDate: dbGoal.start_date ? new Date(dbGoal.start_date).getTime() : undefined,
+          endDate: dbGoal.end_date ? new Date(dbGoal.end_date).getTime() : undefined,
+          createdAt: new Date(dbGoal.created_at).getTime(),
+          updatedAt: new Date(dbGoal.updated_at).getTime(),
         }));
 
         dispatch({ type: 'SET_INTERACTIONS', payload: interactions });
         dispatch({ type: 'SET_SESSIONS', payload: sessions });
         dispatch({ type: 'SET_MEMORIES', payload: memories });
         dispatch({ type: 'SET_ACTION_ITEMS', payload: actionItems });
+        dispatch({ type: 'SET_GOALS', payload: goals });
       } else {
-        // Load from localStorage (fallback)
-        const [interactions, sessions, memories, actionItems] = await Promise.all([
+        // Fallback to localStorage if Supabase is not available
+        const [interactions, sessions, memories, actionItems, goals] = await Promise.all([
           Promise.resolve(storage.getInteractions()),
           Promise.resolve(storage.getSessions()),
           Promise.resolve(storage.getMemories()),
           Promise.resolve(storage.getActionItems()),
+          Promise.resolve(storage.getGoals()),
+          Promise.resolve(storage.getTaskTemplates()),
         ]);
 
         dispatch({ type: 'SET_INTERACTIONS', payload: interactions });
         dispatch({ type: 'SET_SESSIONS', payload: sessions });
         dispatch({ type: 'SET_MEMORIES', payload: memories });
         dispatch({ type: 'SET_ACTION_ITEMS', payload: actionItems });
+        dispatch({ type: 'SET_GOALS', payload: goals });
       }
     } catch (error) {
       console.error('Error loading data:', error);
       // Fallback to localStorage
-      const [interactions, sessions, memories, actionItems] = await Promise.all([
+      const [interactions, sessions, memories, actionItems, goals] = await Promise.all([
         Promise.resolve(storage.getInteractions()),
         Promise.resolve(storage.getSessions()),
         Promise.resolve(storage.getMemories()),
         Promise.resolve(storage.getActionItems()),
+        Promise.resolve(storage.getGoals()),
+        Promise.resolve(storage.getTaskTemplates()),
       ]);
 
       dispatch({ type: 'SET_INTERACTIONS', payload: interactions });
       dispatch({ type: 'SET_SESSIONS', payload: sessions });
       dispatch({ type: 'SET_MEMORIES', payload: memories });
       dispatch({ type: 'SET_ACTION_ITEMS', payload: actionItems });
+      dispatch({ type: 'SET_GOALS', payload: goals });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
-  const addInteraction = async (interactionData: Omit<AIInteraction, 'id' | 'timestamp'>) => {
+  const addInteraction = async (interactionData: Omit<AIInteraction, 'id' | 'timestamp'>): Promise<AIInteraction> => {
     const interaction: AIInteraction = {
       ...interactionData,
       id: crypto.randomUUID(),
@@ -269,31 +269,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     interaction.embedding = embedding;
 
-    if (state.useDatabase && services?.dbService) {
-      // Save to database
-      const userId = 'default-user';
-      await services.dbService.createAiInteraction({
-        user_id: userId,
-        session_id: interaction.sessionId,
-        prompt: interaction.prompt,
-        response: interaction.response,
-        platform: interaction.platform,
-        model: interaction.model,
-        timestamp: interaction.timestamp,
-        tags: interaction.tags,
-        summary: interaction.summary,
-        embedding: interaction.embedding,
-        tokens_used: 0, // TODO: Get actual token count
-      });
+    if (services?.dbService) {
+      // Save to Supabase
+      await services.dbService.saveInteraction(interaction);
 
-      // Create memory in database
-      await services.ragService.createMemory(
-        userId,
-        `Q: ${interaction.prompt}\nA: ${interaction.response}`,
-        'interaction',
-        interaction.id,
-        interaction.tags
-      );
+      // Create memory in Supabase
+      const memory: Memory = {
+        id: crypto.randomUUID(),
+        content: `Q: ${interaction.prompt}\nA: ${interaction.response}`,
+        embedding,
+        source: 'interaction',
+        sourceId: interaction.id,
+        tags: interaction.tags,
+        relevanceScore: 1.0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      await services.dbService.saveMemory(memory);
+      dispatch({ type: 'ADD_MEMORY', payload: memory });
     } else {
       // Save to localStorage
       storage.saveInteraction(interaction);
@@ -321,6 +314,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     for (const item of actionItems) {
       await addActionItem(item);
     }
+
+    return interaction;
   };
 
   const createSession = async (title: string, platform: string): Promise<Session> => {
@@ -334,16 +329,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       totalInteractions: 0,
     };
 
-    if (state.useDatabase && services?.dbService) {
-      // Save to database
-      const userId = 'default-user';
-      await services.dbService.createSession({
-        user_id: userId,
-        title: session.title,
-        platform: session.platform,
-        start_time: new Date(session.startTime).toISOString(),
-        total_interactions: session.totalInteractions,
-      });
+    if (services?.dbService) {
+      // Save to Supabase
+      await services.dbService.saveSession(session);
     } else {
       // Save to localStorage
       storage.saveSession(session);
@@ -356,17 +344,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSession = async (session: Session) => {
-    if (state.useDatabase && services?.dbService) {
-      // Update in database
-      const userId = 'default-user';
-      await services.dbService.updateSession(session.id, {
-        title: session.title,
-        platform: session.platform,
-        end_time: session.endTime ? new Date(session.endTime).toISOString() : undefined,
-        summary: session.summary,
-        themes: session.themes,
-        total_interactions: session.totalInteractions,
-      });
+    if (services?.dbService) {
+      // Update in Supabase
+      await services.dbService.saveSession(session);
     } else {
       // Update in localStorage
       storage.saveSession(session);
@@ -382,19 +362,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createdAt: Date.now(),
     };
 
-    if (state.useDatabase && services?.dbService) {
-      // Save to database
-      const userId = 'default-user';
-      await services.dbService.createActionItem({
-        user_id: userId,
-        text: item.text,
-        completed: item.completed,
-        priority: item.priority,
-        category: item.category,
-        due_date: item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : undefined,
-        source_interaction_id: item.sourceInteractionId,
-        source_session_id: undefined,
-      });
+    if (services?.dbService) {
+      // Save to Supabase
+      await services.dbService.saveActionItem(item);
     } else {
       // Save to localStorage
       storage.saveActionItem(item);
@@ -404,15 +374,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const updateActionItem = async (item: ActionItem) => {
-    if (state.useDatabase && services?.dbService) {
-      // Update in database
-      await services.dbService.updateActionItem(item.id, {
-        text: item.text,
-        completed: item.completed,
-        priority: item.priority,
-        category: item.category,
-        due_date: item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : undefined,
-      });
+    if (services?.dbService) {
+      // Update in Supabase
+      await services.dbService.saveActionItem(item);
     } else {
       // Update in localStorage
       storage.saveActionItem(item);
@@ -422,8 +386,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteActionItem = async (id: string) => {
-    if (state.useDatabase && services?.dbService) {
-      // Delete from database
+    if (services?.dbService) {
+      // Delete from Supabase
       await services.dbService.deleteActionItem(id);
     } else {
       // Delete from localStorage
@@ -433,32 +397,224 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'DELETE_ACTION_ITEM', payload: id });
   };
 
+  // Session-to-Task Linking Methods
+  const addActionItemFromSession = async (
+    itemData: Omit<ActionItem, 'id' | 'createdAt' | 'updatedAt'>,
+    sessionId: string,
+    interactionId?: string
+  ) => {
+    const item: ActionItem = {
+      ...itemData,
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      sourceSessionId: sessionId,
+      sourceInteractionId: interactionId,
+    };
+
+    if (services?.dbService) {
+      // Save to Supabase with session link
+      await services.dbService.saveActionItem(item);
+    } else {
+      // Save to localStorage
+      storage.saveActionItem(item);
+    }
+
+    dispatch({ type: 'ADD_ACTION_ITEM', payload: item });
+    return item;
+  };
+
+  const getTasksBySession = async (sessionId: string): Promise<ActionItem[]> => {
+    if (services?.dbService) {
+      return await services.dbService.getTasksBySession(sessionId);
+    } else {
+      // Filter from local state
+      return state.actionItems.filter(item => item.sourceSessionId === sessionId);
+    }
+  };
+
+  const getTaskActivityLog = async (taskId: string) => {
+    if (services?.dbService) {
+      return await services.dbService.getTaskActivityLog(taskId);
+    } else {
+      // Return empty array for localStorage (no activity logging)
+      return [];
+    }
+  };
+
+  const addGoal = async (goalData: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const goal: Goal = {
+      ...goalData,
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (services?.dbService) {
+      // Save to Supabase
+      const dbGoal: any = {
+        title: goal.title,
+        description: goal.description,
+        category: goal.category,
+        tags: goal.tags,
+        target_date: goal.targetDate ? new Date(goal.targetDate).toISOString().split('T')[0] : null,
+        completed: goal.completed,
+        progress: goal.progress,
+        priority: goal.priority,
+        goal_type: goal.goalType,
+        parent_goal_id: goal.parentGoalId || null,
+        phase: goal.phase,
+        start_date: goal.startDate ? new Date(goal.startDate).toISOString().split('T')[0] : null,
+        end_date: goal.endDate ? new Date(goal.endDate).toISOString().split('T')[0] : null,
+      };
+      await services.dbService.createGoal(dbGoal);
+    } else {
+      // Save to localStorage
+      storage.saveGoal(goal);
+    }
+
+    dispatch({ type: 'ADD_GOAL', payload: goal });
+  };
+
+  const updateGoal = async (goal: Goal) => {
+    const updatedGoal = { ...goal, updatedAt: Date.now() };
+    
+    if (services?.dbService) {
+      // Update in Supabase
+      const dbUpdates = {
+        title: goal.title,
+        description: goal.description,
+        category: goal.category,
+        tags: goal.tags,
+        target_date: goal.targetDate ? new Date(goal.targetDate).toISOString().split('T')[0] : null,
+        completed: goal.completed,
+        progress: goal.progress,
+        priority: goal.priority,
+        goal_type: goal.goalType,
+        parent_goal_id: goal.parentGoalId || null,
+        phase: goal.phase,
+        start_date: goal.startDate ? new Date(goal.startDate).toISOString().split('T')[0] : null,
+        end_date: goal.endDate ? new Date(goal.endDate).toISOString().split('T')[0] : null,
+      };
+      await services.dbService.updateGoal(goal.id, dbUpdates);
+    } else {
+      // Update in localStorage
+      storage.saveGoal(updatedGoal);
+    }
+
+    dispatch({ type: 'UPDATE_GOAL', payload: updatedGoal });
+  };
+
+  const deleteGoal = async (id: string) => {
+    if (services?.dbService) {
+      // Delete from Supabase
+      await services.dbService.deleteGoal(id);
+    } else {
+      // Delete from localStorage
+      storage.deleteGoal(id);
+    }
+
+    dispatch({ type: 'DELETE_GOAL', payload: id });
+  };
+
+  // Task Template Functions
+  const addTaskTemplate = async (templateData: Omit<TaskTemplate, 'id' | 'createdAt' | 'updatedAt' | 'usageCount'>) => {
+    const newTemplate: TaskTemplate = {
+      ...templateData,
+      id: crypto.randomUUID(),
+      usageCount: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (services?.dbService) {
+      // Save to Supabase
+      const dbTemplate = {
+        id: newTemplate.id,
+        user_id: '', // Will be set by RLS policies
+        name: newTemplate.name,
+        description: newTemplate.description,
+        category: newTemplate.category,
+        priority: newTemplate.priority,
+        tags: newTemplate.tags,
+        estimated_duration: newTemplate.estimatedDuration,
+        is_recurring: newTemplate.isRecurring,
+        recurrence_pattern: newTemplate.recurrencePattern,
+        recurrence_config: newTemplate.recurrenceConfig,
+        usage_count: newTemplate.usageCount,
+        last_used: newTemplate.lastUsed ? new Date(newTemplate.lastUsed).toISOString() : null,
+        is_public: newTemplate.isPublic,
+        created_at: new Date(newTemplate.createdAt).toISOString(),
+        updated_at: new Date(newTemplate.updatedAt).toISOString(),
+      };
+      await services.dbService.addTaskTemplate(dbTemplate);
+    } else {
+      // Save to localStorage
+      storage.saveTaskTemplate(newTemplate);
+    }
+
+    dispatch({ type: 'ADD_TASK_TEMPLATE', payload: newTemplate });
+  };
+
+  const updateTaskTemplate = async (template: TaskTemplate) => {
+    const updatedTemplate = {
+      ...template,
+      updatedAt: Date.now(),
+    };
+
+    if (services?.dbService) {
+      // Update in Supabase
+      const dbUpdates = {
+        name: updatedTemplate.name,
+        description: updatedTemplate.description,
+        category: updatedTemplate.category,
+        priority: updatedTemplate.priority,
+        tags: updatedTemplate.tags,
+        estimated_duration: updatedTemplate.estimatedDuration,
+        is_recurring: updatedTemplate.isRecurring,
+        recurrence_pattern: updatedTemplate.recurrencePattern,
+        recurrence_config: updatedTemplate.recurrenceConfig,
+        usage_count: updatedTemplate.usageCount,
+        last_used: updatedTemplate.lastUsed ? new Date(updatedTemplate.lastUsed).toISOString() : null,
+        is_public: updatedTemplate.isPublic,
+        updated_at: new Date(updatedTemplate.updatedAt).toISOString(),
+      };
+      await services.dbService.updateTaskTemplate(template.id, dbUpdates);
+    } else {
+      // Update in localStorage
+      storage.saveTaskTemplate(updatedTemplate);
+    }
+
+    dispatch({ type: 'UPDATE_TASK_TEMPLATE', payload: updatedTemplate });
+  };
+
+  const deleteTaskTemplate = async (id: string) => {
+    if (services?.dbService) {
+      // Delete from Supabase
+      await services.dbService.deleteTaskTemplate(id);
+    } else {
+      // Delete from localStorage
+      storage.deleteTaskTemplate(id);
+    }
+
+    dispatch({ type: 'DELETE_TASK_TEMPLATE', payload: id });
+  };
+
   const searchContent = async (query: string) => {
     if (!query.trim()) {
       dispatch({ type: 'SET_SEARCH_RESULTS', payload: [] });
       return;
     }
 
-    if (state.useDatabase && services?.ragService) {
-      // Search using database RAG
-      const userId = 'default-user';
-      const results = await services.ragService.searchMemories(userId, query, 0.7, 10);
+    if (services?.dbService) {
+      // Search using Supabase
+      const interactions = await services.dbService.searchInteractions(query);
       
       // Convert to SearchResult format
-      const searchResults: SearchResult[] = results.map(result => ({
-        item: {
-          id: result.id,
-          content: result.content,
-          embedding: [],
-          source: result.source_type as any,
-          sourceId: result.source_id,
-          tags: [],
-          relevanceScore: result.similarity,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        },
-        score: result.similarity,
-        type: 'memory',
+      const searchResults: SearchResult[] = interactions.map((interaction: AIInteraction) => ({
+        item: interaction,
+        score: 1.0, // Default score for now
+        type: 'interaction' as const,
       }));
 
       dispatch({ type: 'SET_SEARCH_RESULTS', payload: searchResults });
@@ -492,6 +648,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           category: 'Development',
           sourceInteractionId: interactionId,
           createdAt: Date.now(),
+          updatedAt: Date.now(),
         });
       }
     });
@@ -500,11 +657,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const getRagContext = async (query: string): Promise<Memory[]> => {
-    if (state.useDatabase && services?.ragService) {
-      // Get context from database
-      const userId = 'default-user';
-      const context = await services.ragService.getRAGContext(userId, query, 0.7, 5);
-      return context.memories;
+    if (services?.dbService) {
+      // Get context from Supabase
+      const memories = await services.dbService.getMemories();
+      return ragService.getRelevantMemories(query, memories);
     } else {
       // Get context from localStorage
       return ragService.getRelevantMemories(query, state.memories);
@@ -526,49 +682,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const migrateToDatabase = async (userId: string) => {
-    if (!services?.dbService || !services?.ragService) {
-      throw new Error('Database services not initialized');
-    }
 
-    dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'migrating' });
-
-    try {
-      const migration = new MigrationService(services.dbService, services.ragService);
-      const result = await migration.migrateAllData(userId);
-      
-      console.log('Migration completed:', result);
-      
-      // Reload data from database
-      await loadData();
-      
-      dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'completed' });
-    } catch (error) {
-      console.error('Migration failed:', error);
-      dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'error' });
-      throw error;
-    }
-  };
-
-  const switchToDatabase = async () => {
-    if (!state.databaseConnected) {
-      throw new Error('Database not connected');
-    }
-
-    localStorage.setItem('useDatabase', 'true');
-    dispatch({ type: 'SET_USE_DATABASE', payload: true });
-    await loadData();
-  };
-
-  const switchToLocalStorage = async () => {
-    localStorage.setItem('useDatabase', 'false');
-    dispatch({ type: 'SET_USE_DATABASE', payload: false });
-    await loadData();
-  };
 
   useEffect(() => {
     loadData();
-  }, [state.useDatabase, services]);
+  }, [services]);
 
   const actions = {
     loadData,
@@ -578,13 +696,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addActionItem,
     updateActionItem,
     deleteActionItem,
+    addActionItemFromSession,
+    getTasksBySession,
+    getTaskActivityLog,
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    addTaskTemplate,
+    updateTaskTemplate,
+    deleteTaskTemplate,
     searchContent,
     extractActionItems,
     getRagContext,
     testDatabaseConnection,
-    migrateToDatabase,
-    switchToDatabase,
-    switchToLocalStorage,
   };
 
   return (

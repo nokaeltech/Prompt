@@ -13,6 +13,11 @@ const SearchResult: React.FC<SearchResultProps> = ({ result, index }) => {
   const isInteraction = result.type === 'interaction';
   const item = result.item;
 
+  // Safety check for undefined item
+  if (!item) {
+    return null;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}

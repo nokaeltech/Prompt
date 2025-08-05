@@ -5,12 +5,13 @@ import {
   Home, 
   MessageSquare, 
   CheckSquare, 
+  Target,
   Search, 
   Bot, 
   Settings,
-  Brain,
-  Zap
+  Brain
 } from 'lucide-react';
+import UserProfile from './UserProfile';
 
 interface LayoutProps {
   children: ReactNode;
@@ -23,6 +24,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/', icon: Home, label: 'Dashboard' },
     { path: '/sessions', icon: MessageSquare, label: 'Sessions' },
     { path: '/actions', icon: CheckSquare, label: 'Actions' },
+
+    { path: '/goals', icon: Target, label: 'Goals' },
     { path: '/search', icon: Search, label: 'Search' },
     { path: '/chat', icon: Bot, label: 'Chat' },
     { path: '/settings', icon: Settings, label: 'Settings' },
@@ -79,21 +82,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </ul>
         </div>
 
-        <div className="absolute bottom-6 left-6 right-6">
-          <div className="p-4 rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-600/50 border border-slate-600/50">
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-4 h-4 text-yellow-400" />
-              <span className="text-sm font-semibold text-white">RAG Enabled</span>
-            </div>
-            <p className="text-xs text-slate-300">
-              Context-aware responses using your memory
-            </p>
-          </div>
-        </div>
+
       </motion.nav>
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
+        {/* Header with user profile */}
+        <header className="flex items-center justify-between p-6 border-b border-slate-700/50">
+          <div>
+            <h2 className="text-2xl font-bold text-white">
+              {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
+            </h2>
+          </div>
+          <UserProfile />
+        </header>
+
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 20 }}

@@ -1,10 +1,12 @@
-import { AIInteraction, Session, Memory, ActionItem } from '../types';
+import { AIInteraction, Session, Memory, ActionItem, Goal, TaskTemplate } from '../types';
 
 class StorageManager {
   private readonly INTERACTIONS_KEY = 'aqeel_interactions';
   private readonly SESSIONS_KEY = 'aqeel_sessions';
   private readonly MEMORIES_KEY = 'aqeel_memories';
   private readonly ACTIONS_KEY = 'aqeel_actions';
+  private readonly GOALS_KEY = 'aqeel_goals';
+  private readonly TASK_TEMPLATES_KEY = 'aqeel_task_templates';
 
   // Interactions
   saveInteraction(interaction: AIInteraction): void {
@@ -83,6 +85,52 @@ class StorageManager {
     const actions = this.getActionItems();
     const filtered = actions.filter(a => a.id !== id);
     localStorage.setItem(this.ACTIONS_KEY, JSON.stringify(filtered));
+  }
+
+  // Goals
+  saveGoal(goal: Goal): void {
+    const goals = this.getGoals();
+    const existingIndex = goals.findIndex(g => g.id === goal.id);
+    if (existingIndex >= 0) {
+      goals[existingIndex] = goal;
+    } else {
+      goals.push(goal);
+    }
+    localStorage.setItem(this.GOALS_KEY, JSON.stringify(goals));
+  }
+
+  getGoals(): Goal[] {
+    const data = localStorage.getItem(this.GOALS_KEY);
+    return data ? JSON.parse(data) : [];
+  }
+
+  deleteGoal(id: string): void {
+    const goals = this.getGoals();
+    const filtered = goals.filter(g => g.id !== id);
+    localStorage.setItem(this.GOALS_KEY, JSON.stringify(filtered));
+  }
+
+  // Task Templates
+  saveTaskTemplate(template: TaskTemplate): void {
+    const templates = this.getTaskTemplates();
+    const existingIndex = templates.findIndex(t => t.id === template.id);
+    if (existingIndex >= 0) {
+      templates[existingIndex] = template;
+    } else {
+      templates.push(template);
+    }
+    localStorage.setItem(this.TASK_TEMPLATES_KEY, JSON.stringify(templates));
+  }
+
+  getTaskTemplates(): TaskTemplate[] {
+    const data = localStorage.getItem(this.TASK_TEMPLATES_KEY);
+    return data ? JSON.parse(data) : [];
+  }
+
+  deleteTaskTemplate(id: string): void {
+    const templates = this.getTaskTemplates();
+    const filtered = templates.filter(t => t.id !== id);
+    localStorage.setItem(this.TASK_TEMPLATES_KEY, JSON.stringify(filtered));
   }
 
   // Search

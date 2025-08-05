@@ -7,7 +7,7 @@ A powerful RAG-powered productivity and planning application that helps you orga
 - **🤖 AI Memory Management** - Store and retrieve AI interactions with semantic search
 - **📝 Action Item Extraction** - Automatically extract actionable items from AI responses
 - **🔍 Vector Search** - Find relevant content using OpenAI embeddings
-- **💾 Dual Storage** - Switch between localStorage and PostgreSQL database
+- **☁️ Cloud Storage** - Supabase database with vector similarity search
 - **📊 Session Management** - Organize conversations by sessions and platforms
 - **🎯 Task Planning** - Create, track, and manage action items with priorities
 - **🔗 RAG Integration** - Enhanced AI responses with context from your history
@@ -15,21 +15,21 @@ A powerful RAG-powered productivity and planning application that helps you orga
 ## 🏗️ Architecture
 
 ```
-Frontend (React/Vite) ←→ API Server (Express) ←→ PostgreSQL + pgvector
+Frontend (React/Vite) ←→ Supabase ←→ PostgreSQL + pgvector
 ```
 
 - **Frontend**: React with TypeScript, Tailwind CSS, Framer Motion
-- **Backend**: Express.js API server with PostgreSQL
+- **Backend**: Supabase (BaaS) with PostgreSQL
 - **Database**: PostgreSQL with pgvector extension for vector similarity search
 - **AI**: OpenAI API for embeddings and chat completions
-- **Storage**: Dual-mode (localStorage ↔ PostgreSQL)
+- **Storage**: Supabase with localStorage fallback
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - **Node.js** 18+ and npm
-- **Docker** and Docker Compose
+- **Supabase account** (free tier available)
 - **OpenAI API key** (optional for full RAG features)
 
 ### 1. Clone and Install
@@ -38,99 +38,69 @@ Frontend (React/Vite) ←→ API Server (Express) ←→ PostgreSQL + pgvector
 git clone <your-repo-url>
 cd Aqeel
 npm install
-npm run server:install
 ```
 
-### 2. Set Up Environment
+### 2. Set Up Supabase
 
-```bash
-# Create environment files
-npm run setup-env
-```
+Follow the [Supabase Setup Guide](./SUPABASE_SETUP.md) to:
+- Create a Supabase project
+- Set up the database schema
+- Configure environment variables
 
-Or manually create:
+### 3. Set Up Environment
 
-**`.env.local`** (frontend):
+Create a `.env.local` file:
+
 ```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_OPENAI_API_KEY=your_openai_api_key_here
-VITE_API_URL=http://localhost:3001/api
-VITE_APP_ENV=development
-```
-
-**`server/.env`** (backend):
-```env
-DATABASE_URL=postgresql://aqeel_user:aqeel_password@localhost:5433/aqeel_db
-OPENAI_API_KEY=your_openai_api_key_here
-PORT=3001
-```
-
-### 3. Start Database
-
-```bash
-npm run db:start
 ```
 
 ### 4. Start Application
 
 ```bash
-# Start both frontend and API server
-npm run dev:full
+npm run dev
 ```
 
 Your app is now running at:
 - **Frontend**: http://localhost:5173
-- **API Server**: http://localhost:3001
-- **Database**: PostgreSQL on localhost:5433
+- **Database**: Supabase (cloud-hosted)
 
 ## 📚 Available Scripts
 
 ### Development
 ```bash
-npm run dev               # Start frontend only
-npm run dev:full          # Start both frontend and API server
+npm run dev               # Start frontend development server
 npm run build             # Build for production
 npm run preview           # Preview production build
-```
-
-### Database Management
-```bash
-npm run db:start          # Start PostgreSQL container
-npm run db:stop           # Stop PostgreSQL container
-npm run db:logs           # View database logs
-npm run db:connect        # Connect to database CLI
-```
-
-### API Server
-```bash
-npm run server:install    # Install server dependencies
-npm run server:dev        # Start API server in development
-npm run server:start      # Start API server in production
-npm run server:test       # Test database connection
+npm run lint              # Run ESLint
 ```
 
 ### Setup
 ```bash
-npm run setup-env         # Configure environment variables
-npm run setup-db          # Initialize database schema
+npm run setup-supabase    # Configure Supabase environment variables
+npm run setup-env         # Configure other environment variables
 ```
 
 ## 🧪 Testing the Integration
 
-1. **Database Connection Test**
-   ```bash
-   curl http://localhost:3001/api/health
-   ```
-
-2. **Frontend Integration Test**
+1. **Frontend Integration Test**
    - Open http://localhost:5173
    - Navigate to Dashboard
    - Click "Run Database Tests"
+   - Verify all tests pass (Connection, Create, Search)
 
-3. **RAG Functionality Test**
+2. **RAG Functionality Test**
    - Go to Chat page
    - Send: "I need to finish the project proposal by Friday"
    - Send follow-up: "What deadlines do I have?"
    - Verify AI references your previous message
+
+3. **Supabase Connection Test**
+   - Check browser console for Supabase connection status
+   - Verify environment variables are properly set
+   - Test database operations in the app
 
 ## 🗄️ Database Schema
 

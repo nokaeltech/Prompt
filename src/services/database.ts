@@ -5,6 +5,10 @@ import {
   DatabaseMemory, 
   DatabaseMessage, 
   DatabaseSession, 
+  DatabaseGoal,
+  DatabaseGoalPhase,
+  DatabaseGoalSubgoal,
+  DatabaseGoalProgressLog,
   DatabaseActionItem, 
   DatabaseApiKey, 
   DatabaseUsageLog, 
@@ -15,6 +19,10 @@ import {
   InsertMemory,
   InsertMessage,
   InsertSession,
+  InsertGoal,
+  InsertGoalPhase,
+  InsertGoalSubgoal,
+  InsertGoalProgressLog,
   InsertActionItem,
   InsertApiKey,
   InsertUsageLog,
@@ -23,6 +31,9 @@ import {
   UpdateSubtask,
   UpdateNote,
   UpdateMemory,
+  UpdateGoal,
+  UpdateGoalPhase,
+  UpdateGoalSubgoal,
   UpdateSession,
   UpdateActionItem,
   MemorySearchResult,
@@ -258,6 +269,182 @@ export class DatabaseService {
 
     if (error) throw error;
     return data;
+  }
+
+  // ===== GOALS =====
+  async createGoal(goal: InsertGoal): Promise<DatabaseGoal> {
+    const { data, error } = await this.supabase
+      .from('goals')
+      .insert(goal)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getGoals(userId: string): Promise<DatabaseGoal[]> {
+    const { data, error } = await this.supabase
+      .from('goals')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getGoalById(goalId: string): Promise<DatabaseGoal | null> {
+    const { data, error } = await this.supabase
+      .from('goals')
+      .select('*')
+      .eq('id', goalId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async updateGoal(goalId: string, updates: UpdateGoal): Promise<DatabaseGoal> {
+    const { data, error } = await this.supabase
+      .from('goals')
+      .update(updates)
+      .eq('id', goalId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteGoal(goalId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('goals')
+      .delete()
+      .eq('id', goalId);
+
+    if (error) throw error;
+  }
+
+  // ===== GOAL PHASES =====
+  async createGoalPhase(phase: InsertGoalPhase): Promise<DatabaseGoalPhase> {
+    const { data, error } = await this.supabase
+      .from('goal_phases')
+      .insert(phase)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getGoalPhases(goalId: string): Promise<DatabaseGoalPhase[]> {
+    const { data, error } = await this.supabase
+      .from('goal_phases')
+      .select('*')
+      .eq('goal_id', goalId)
+      .order('order_index', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateGoalPhase(phaseId: string, updates: UpdateGoalPhase): Promise<DatabaseGoalPhase> {
+    const { data, error } = await this.supabase
+      .from('goal_phases')
+      .update(updates)
+      .eq('id', phaseId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteGoalPhase(phaseId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('goal_phases')
+      .delete()
+      .eq('id', phaseId);
+
+    if (error) throw error;
+  }
+
+  // ===== GOAL SUBGOALS =====
+  async createGoalSubgoal(subgoal: InsertGoalSubgoal): Promise<DatabaseGoalSubgoal> {
+    const { data, error } = await this.supabase
+      .from('goal_subgoals')
+      .insert(subgoal)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getGoalSubgoals(goalId: string, phaseId?: string): Promise<DatabaseGoalSubgoal[]> {
+    let query = this.supabase
+      .from('goal_subgoals')
+      .select('*')
+      .eq('goal_id', goalId);
+
+    if (phaseId) {
+      query = query.eq('phase_id', phaseId);
+    }
+
+    const { data, error } = await query.order('order_index', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateGoalSubgoal(subgoalId: string, updates: UpdateGoalSubgoal): Promise<DatabaseGoalSubgoal> {
+    const { data, error } = await this.supabase
+      .from('goal_subgoals')
+      .update(updates)
+      .eq('id', subgoalId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteGoalSubgoal(subgoalId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('goal_subgoals')
+      .delete()
+      .eq('id', subgoalId);
+
+    if (error) throw error;
+  }
+
+  // ===== GOAL PROGRESS LOGS =====
+  async createGoalProgressLog(log: InsertGoalProgressLog): Promise<DatabaseGoalProgressLog> {
+    const { data, error } = await this.supabase
+      .from('goal_progress_logs')
+      .insert(log)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getGoalProgressLogs(goalId: string, subgoalId?: string): Promise<DatabaseGoalProgressLog[]> {
+    let query = this.supabase
+      .from('goal_progress_logs')
+      .select('*')
+      .eq('goal_id', goalId);
+
+    if (subgoalId) {
+      query = query.eq('subgoal_id', subgoalId);
+    }
+
+    const { data, error } = await query.order('logged_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   // ===== MESSAGES =====

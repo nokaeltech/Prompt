@@ -76,6 +76,64 @@ export interface DatabaseSession {
   updated_at: string;
 }
 
+export interface DatabaseGoal {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  category: string;
+  tags?: string[];
+  target_date?: string;
+  completed: boolean;
+  progress: number;
+  priority: 'low' | 'medium' | 'high';
+  goal_type: 'simple' | 'milestone' | 'habit' | 'project';
+  parent_goal_id?: string;
+  phase: string;
+  start_date?: string;
+  end_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatabaseGoalPhase {
+  id: string;
+  goal_id: string;
+  title: string;
+  description?: string;
+  order_index: number;
+  completed: boolean;
+  progress: number;
+  start_date?: string;
+  end_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatabaseGoalSubgoal {
+  id: string;
+  goal_id: string;
+  phase_id?: string;
+  title: string;
+  description?: string;
+  completed: boolean;
+  progress: number;
+  priority: 'low' | 'medium' | 'high';
+  due_date?: string;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatabaseGoalProgressLog {
+  id: string;
+  goal_id: string;
+  subgoal_id?: string;
+  progress_value: number;
+  notes?: string;
+  logged_at: string;
+}
+
 export interface DatabaseActionItem {
   id: string;
   user_id: string;
@@ -86,6 +144,7 @@ export interface DatabaseActionItem {
   due_date?: string;
   source_interaction_id?: string;
   source_session_id?: string;
+  goal_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -134,6 +193,10 @@ export type InsertNote = Omit<DatabaseNote, 'id' | 'created_at' | 'updated_at'>;
 export type InsertMemory = Omit<DatabaseMemory, 'id' | 'created_at' | 'updated_at'>;
 export type InsertMessage = Omit<DatabaseMessage, 'id' | 'created_at'>;
 export type InsertSession = Omit<DatabaseSession, 'id' | 'created_at' | 'updated_at'>;
+export type InsertGoal = Omit<DatabaseGoal, 'id' | 'created_at' | 'updated_at'>;
+export type InsertGoalPhase = Omit<DatabaseGoalPhase, 'id' | 'created_at' | 'updated_at'>;
+export type InsertGoalSubgoal = Omit<DatabaseGoalSubgoal, 'id' | 'created_at' | 'updated_at'>;
+export type InsertGoalProgressLog = Omit<DatabaseGoalProgressLog, 'id' | 'logged_at'>;
 export type InsertActionItem = Omit<DatabaseActionItem, 'id' | 'created_at' | 'updated_at'>;
 export type InsertApiKey = Omit<DatabaseApiKey, 'id' | 'created_at' | 'updated_at'>;
 export type InsertUsageLog = Omit<DatabaseUsageLog, 'id' | 'created_at'>;
@@ -144,6 +207,9 @@ export type UpdateTask = Partial<Omit<DatabaseTask, 'id' | 'user_id' | 'created_
 export type UpdateSubtask = Partial<Omit<DatabaseSubtask, 'id' | 'task_id' | 'created_at' | 'updated_at'>>;
 export type UpdateNote = Partial<Omit<DatabaseNote, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
 export type UpdateMemory = Partial<Omit<DatabaseMemory, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+export type UpdateGoal = Partial<Omit<DatabaseGoal, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+export type UpdateGoalPhase = Partial<Omit<DatabaseGoalPhase, 'id' | 'goal_id' | 'created_at' | 'updated_at'>>;
+export type UpdateGoalSubgoal = Partial<Omit<DatabaseGoalSubgoal, 'id' | 'goal_id' | 'created_at' | 'updated_at'>>;
 export type UpdateSession = Partial<Omit<DatabaseSession, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
 export type UpdateActionItem = Partial<Omit<DatabaseActionItem, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
 
@@ -171,6 +237,10 @@ export interface DatabaseSchema {
   memories: DatabaseMemory;
   messages: DatabaseMessage;
   sessions: DatabaseSession;
+  goals: DatabaseGoal;
+  goal_phases: DatabaseGoalPhase;
+  goal_subgoals: DatabaseGoalSubgoal;
+  goal_progress_logs: DatabaseGoalProgressLog;
   action_items: DatabaseActionItem;
   api_keys: DatabaseApiKey;
   usage_logs: DatabaseUsageLog;

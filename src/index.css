@@ -52,3 +52,157 @@
 .gradient-purple { --gradient-start: #8b5cf6; --gradient-end: #7c3aed; }
 .gradient-orange { --gradient-start: #f97316; --gradient-end: #ea580c; }
 .gradient-green { --gradient-start: #10b981; --gradient-end: #059669; }
+
+/* Range slider styles */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-track {
+  background: #374151;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #3b82f6;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+}
+
+.slider::-moz-range-track {
+  background: #374151;
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+}
+
+.slider::-moz-range-thumb {
+  background: #3b82f6;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+}
+
+/* Goal progress styles */
+.goal-progress-bar {
+  width: var(--progress-width, 0%);
+}
+
+.goal-progress-0 { --progress-width: 0%; }
+.goal-progress-10 { --progress-width: 10%; }
+.goal-progress-20 { --progress-width: 20%; }
+.goal-progress-30 { --progress-width: 30%; }
+.goal-progress-40 { --progress-width: 40%; }
+.goal-progress-50 { --progress-width: 50%; }
+.goal-progress-60 { --progress-width: 60%; }
+.goal-progress-70 { --progress-width: 70%; }
+.goal-progress-80 { --progress-width: 80%; }
+.goal-progress-90 { --progress-width: 90%; }
+.goal-progress-100 { --progress-width: 100%; }
+
+/* Overall progress styles */
+.overall-progress-bar {
+  width: var(--overall-progress-width, 0%);
+}
+
+.overall-progress-0 { --overall-progress-width: 0%; }
+.overall-progress-10 { --overall-progress-width: 10%; }
+.overall-progress-20 { --overall-progress-width: 20%; }
+.overall-progress-30 { --overall-progress-width: 30%; }
+.overall-progress-40 { --overall-progress-width: 40%; }
+.overall-progress-50 { --overall-progress-width: 50%; }
+.overall-progress-60 { --overall-progress-width: 60%; }
+.overall-progress-70 { --overall-progress-width: 70%; }
+.overall-progress-80 { --overall-progress-width: 80%; }
+.overall-progress-90 { --overall-progress-width: 90%; }
+.overall-progress-100 { --overall-progress-width: 100%; }
+
+/* Dynamic progress bar styles for inline style replacement */
+.progress-bar-dynamic {
+  width: var(--dynamic-progress-width, 0%);
+}
+
+.progress-bar-goal {
+  width: var(--goal-progress-width, 0%);
+}
+
+.progress-bar-overall {
+  width: var(--overall-progress-width, 0%);
+}
+
+/* Dynamic progress bar classes for different percentages */
+.progress-goal-0 { --goal-progress-width: 0%; }
+.progress-goal-1 { --goal-progress-width: 1%; }
+.progress-goal-2 { --goal-progress-width: 2%; }
+.progress-goal-3 { --goal-progress-width: 3%; }
+.progress-goal-4 { --goal-progress-width: 4%; }
+.progress-goal-5 { --goal-progress-width: 5%; }
+.progress-goal-6 { --goal-progress-width: 6%; }
+.progress-goal-7 { --goal-progress-width: 7%; }
+.progress-goal-8 { --goal-progress-width: 8%; }
+.progress-goal-9 { --goal-progress-width: 9%; }
+.progress-goal-10 { --goal-progress-width: 10%; }
+.progress-goal-15 { --goal-progress-width: 15%; }
+.progress-goal-20 { --goal-progress-width: 20%; }
+.progress-goal-25 { --goal-progress-width: 25%; }
+.progress-goal-30 { --goal-progress-width: 30%; }
+.progress-goal-35 { --goal-progress-width: 35%; }
+.progress-goal-40 { --goal-progress-width: 40%; }
+.progress-goal-45 { --goal-progress-width: 45%; }
+.progress-goal-50 { --goal-progress-width: 50%; }
+.progress-goal-55 { --goal-progress-width: 55%; }
+.progress-goal-60 { --goal-progress-width: 60%; }
+.progress-goal-65 { --goal-progress-width: 65%; }
+.progress-goal-70 { --goal-progress-width: 70%; }
+.progress-goal-75 { --goal-progress-width: 75%; }
+.progress-goal-80 { --goal-progress-width: 80%; }
+.progress-goal-85 { --goal-progress-width: 85%; }
+.progress-goal-90 { --goal-progress-width: 90%; }
+.progress-goal-95 { --goal-progress-width: 95%; }
+.progress-goal-100 { --goal-progress-width: 100%; }
+
+.progress-dynamic-0 { --dynamic-progress-width: 0%; }
+.progress-dynamic-10 { --dynamic-progress-width: 10%; }
+.progress-dynamic-20 { --dynamic-progress-width: 20%; }
+.progress-dynamic-30 { --dynamic-progress-width: 30%; }
+.progress-dynamic-40 { --dynamic-progress-width: 40%; }
+.progress-dynamic-50 { --dynamic-progress-width: 50%; }
+.progress-dynamic-60 { --dynamic-progress-width: 60%; }
+.progress-dynamic-70 { --dynamic-progress-width: 70%; }
+.progress-dynamic-80 { --dynamic-progress-width: 80%; }
+.progress-dynamic-90 { --dynamic-progress-width: 90%; }
+.progress-dynamic-100 { --dynamic-progress-width: 100%; }
+
+.progress-overall-0 { --overall-progress-width: 0%; }
+.progress-overall-10 { --overall-progress-width: 10%; }
+.progress-overall-20 { --overall-progress-width: 20%; }
+.progress-overall-30 { --overall-progress-width: 30%; }
+.progress-overall-40 { --overall-progress-width: 40%; }
+.progress-overall-50 { --overall-progress-width: 50%; }
+.progress-overall-60 { --overall-progress-width: 60%; }
+.progress-overall-70 { --overall-progress-width: 70%; }
+.progress-overall-80 { --overall-progress-width: 80%; }
+.progress-overall-90 { --overall-progress-width: 90%; }
+.progress-overall-100 { --overall-progress-width: 100%; }

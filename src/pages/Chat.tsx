@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
-import { Send, Bot, User, Brain, Zap, Sparkles, Key, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Brain, Zap, Sparkles, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { openaiService } from '../services/openai';
-import ApiKeyModal from '../components/ApiKeyModal';
-import DatabaseStatus from '../components/DatabaseStatus';
+import CreateActionModal from '../components/CreateActionModal';
+
+
+import { Memory } from '../types';
 
 interface ChatMessage {
   id: string;
@@ -13,6 +15,7 @@ interface ChatMessage {
   content: string;
   timestamp: number;
   ragContext?: any[];
+  interactionId?: string;
 }
 
 const Chat: React.FC = () => {
@@ -21,11 +24,11 @@ const Chat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo');
+  const [selectedModel] = useState('gpt-3.5-turbo');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [currentSession, setCurrentSession] = useState<string | null>(null);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [selectedResponse, setSelectedResponse] = useState<{ content: string; interactionId: string } | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -36,10 +39,9 @@ const Chat: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
-    // Load saved API key
+    // Initialize OpenAI service if API key is available
     const savedKey = localStorage.getItem('openai_api_key');
     if (savedKey) {
-      setApiKey(savedKey);
       openaiService.initialize(savedKey);
     }
   }, []);
@@ -51,12 +53,28 @@ const Chat: React.FC = () => {
 
     // Build conversation context
     const systemMessage = ragEnabled && ragContext && ragContext.length > 0
-      ? `You are a helpful AI assistant. You have access to the user's previous interactions and memories for context. Here are some relevant memories from their past conversations:
+      ? `You are an AI-powered productivity and planning assistant. Your role is to help the user with:
+
+1. **Task Management**: Help create, organize, and prioritize tasks and action items
+2. **Goal Planning**: Assist with setting and breaking down long-term goals into actionable steps
+3. **Knowledge Management**: Help organize thoughts, notes, and learnings
+4. **Smart Prioritization**: Suggest what to focus on based on context and priorities
+5. **Daily Planning**: Help with morning reviews and evening reflections
+
+You have access to the user's previous interactions and memories for context. Here are some relevant memories from their past conversations:
 
 ${ragContext.map(memory => `- ${memory.content}`).join('\n')}
 
-Use this context to provide more personalized and relevant responses, but don't explicitly mention that you're using their stored memories unless directly asked.`
-      : 'You are a helpful AI assistant. Provide clear, concise, and helpful responses.';
+Use this context to provide more personalized and relevant responses. When appropriate, suggest creating action items, organizing information, or planning next steps. Don't explicitly mention that you're using their stored memories unless directly asked.`
+      : `You are an AI-powered productivity and planning assistant. Your role is to help the user with:
+
+1. **Task Management**: Help create, organize, and prioritize tasks and action items
+2. **Goal Planning**: Assist with setting and breaking down long-term goals into actionable steps  
+3. **Knowledge Management**: Help organize thoughts, notes, and learnings
+4. **Smart Prioritization**: Suggest what to focus on based on context and priorities
+5. **Daily Planning**: Help with morning reviews and evening reflections
+
+When appropriate, suggest creating action items, organizing information, or planning next steps. Provide clear, actionable advice that helps the user be more productive and organized.`;
 
     const conversationMessages = messages.slice(-10).map(msg => ({
       role: msg.role,
@@ -88,7 +106,7 @@ Use this context to provide more personalized and relevant responses, but don't 
 
     try {
       // Get RAG context if enabled
-      let ragContext = [];
+      let ragContext: Memory[] = [];
       if (ragEnabled) {
         ragContext = await actions.getRagContext(input);
       }
@@ -96,31 +114,34 @@ Use this context to provide more personalized and relevant responses, but don't 
       // Generate AI response
       const aiResponse = await generateAIResponse(input, ragContext);
 
+      // Save interaction first to get the real interaction ID
+      let sessionId = currentSession;
+      if (!sessionId) {
+        const session = await actions.createSession('Chat Session', 'Aqeel');
+        sessionId = session.id;
+        setCurrentSession(sessionId);
+      }
+
+      const savedInteraction = await actions.addInteraction({
+        prompt: input,
+        response: aiResponse,
+        platform: 'ChatGPT',
+        model: selectedModel,
+        sessionId: sessionId,
+        tags: ['chat', 'interactive'],
+        summary: `User asked about: ${input.substring(0, 50)}...`
+      });
+
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: aiResponse,
         timestamp: Date.now(),
-        ragContext: ragContext.length > 0 ? ragContext : undefined
+        ragContext: ragContext.length > 0 ? ragContext : undefined,
+        interactionId: savedInteraction.id // Use the real interaction ID from the database
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-
-      // Save interaction
-      if (!currentSession) {
-        const session = await actions.createSession('Chat Session', 'Aqeel');
-        setCurrentSession(session.id);
-      }
-
-      await actions.addInteraction({
-        prompt: input,
-        response: aiResponse,
-        platform: 'OpenAI',
-        model: selectedModel,
-        sessionId: currentSession || 'default',
-        tags: ['chat', 'interactive'],
-        summary: `User asked about: ${input.substring(0, 50)}...`
-      });
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -134,10 +155,7 @@ Use this context to provide more personalized and relevant responses, but don't 
       };
       setMessages(prev => [...prev, errorMessage]);
       
-      // If it's an API key error, show the modal
-      if (error instanceof Error && error.message.includes('API key')) {
-        setShowApiKeyModal(true);
-      }
+
     } finally {
       setLoading(false);
     }
@@ -150,11 +168,7 @@ Use this context to provide more personalized and relevant responses, but don't 
     }
   };
 
-  const handleSaveApiKey = (newApiKey: string) => {
-    setApiKey(newApiKey);
-    localStorage.setItem('openai_api_key', newApiKey);
-    openaiService.initialize(newApiKey);
-  };
+
 
   const isConfigured = openaiService.isInitialized();
 
@@ -167,53 +181,12 @@ Use this context to provide more personalized and relevant responses, but don't 
         className="flex items-center justify-between mb-6"
       >
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">AI Chat Interface</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">AI Productivity Assistant</h1>
           <p className="text-slate-300">
-            Chat with OpenAI using your stored memory and context
+            Your personal AI assistant for tasks, goals, planning, and knowledge management
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <DatabaseStatus />
-          
-          <button
-            onClick={() => setShowApiKeyModal(true)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors ${
-              isConfigured
-                ? 'bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30'
-                : 'bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30'
-            }`}
-          >
-            {isConfigured ? <Key className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-            <span className="text-sm font-medium">
-              {isConfigured ? 'API Key Set' : 'Set API Key'}
-            </span>
-          </button>
-          
-          {isConfigured && (
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-              aria-label="Select AI model"
-              title="Select AI model"
-            >
-              {openaiService.getAvailableModels().map(model => (
-                <option key={model.id} value={model.id}>{model.name}</option>
-              ))}
-            </select>
-          )}
-          
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${
-            ragEnabled 
-              ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-              : 'bg-slate-700 text-slate-400'
-          }`}>
-            <Brain className="w-4 h-4" />
-            <span className="text-sm font-medium">
-              RAG {ragEnabled ? 'Enabled' : 'Disabled'}
-            </span>
-          </div>
-        </div>
+
       </motion.div>
 
       {/* Messages */}
@@ -228,29 +201,28 @@ Use this context to provide more personalized and relevant responses, but don't 
             <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/20 to-purple-600/20 border border-blue-500/30 mb-6">
               <Bot className="w-12 h-12 text-blue-400 mx-auto mb-3" />
               <h3 className="text-xl font-semibold text-white mb-2">
-                Welcome to AI Chat
+                Welcome to Your AI Productivity Assistant
               </h3>
               <p className="text-slate-300 max-w-md">
                 {isConfigured 
-                  ? "Start a conversation and I'll use your stored memories and interactions to provide contextual responses"
-                  : "Please configure your OpenAI API key to start chatting"
+                  ? "I'm here to help you manage tasks, plan goals, organize knowledge, and boost your productivity. I'll use your stored memories to provide personalized advice."
+                  : "Please configure your OpenAI API key to start using your AI productivity assistant"
                 }
               </p>
               {!isConfigured && (
-                <button
-                  onClick={() => setShowApiKeyModal(true)}
-                  className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                >
-                  Configure API Key
-                </button>
+                <div className="mt-4 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-red-300 text-sm">
+                    Please configure your OpenAI API key in the Settings page to start using the AI assistant.
+                  </p>
+                </div>
               )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl">
               {[
-                { icon: Brain, title: 'Memory-Enhanced', desc: 'Uses your stored interactions' },
-                { icon: Zap, title: 'Context-Aware', desc: 'Remembers previous conversations' },
-                { icon: Sparkles, title: 'Real AI', desc: 'Powered by OpenAI GPT models' }
+                { icon: Brain, title: 'Smart Planning', desc: 'Helps organize tasks and goals' },
+                { icon: Zap, title: 'Knowledge Management', desc: 'Organizes your thoughts and learnings' },
+                { icon: Sparkles, title: 'Productivity Focused', desc: 'AI-powered task prioritization' }
               ].map((feature, index) => {
                 const Icon = feature.icon;
                 return (
@@ -261,6 +233,29 @@ Use this context to provide more personalized and relevant responses, but don't 
                   </div>
                 );
               })}
+            </div>
+            
+            {/* Suggested conversation starters */}
+            <div className="mt-8 max-w-2xl">
+              <h4 className="text-lg font-semibold text-white mb-4 text-center">Try asking me about:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  "Help me organize my tasks for this week",
+                  "Create a plan for my project goals",
+                  "What should I focus on today?",
+                  "Help me break down my long-term goals",
+                  "Organize my thoughts about this topic",
+                  "Suggest action items from our conversation"
+                ].map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setInput(suggestion)}
+                    className="p-3 text-left bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-slate-600/50 rounded-xl transition-colors text-sm text-slate-300 hover:text-white"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
@@ -300,6 +295,25 @@ Use this context to provide more personalized and relevant responses, but don't 
                             <Brain className="w-3 h-3" />
                             <span>Using context from {message.ragContext.length} memory block{message.ragContext.length > 1 ? 's' : ''}</span>
                           </div>
+                        </div>
+                      )}
+                      
+                      {/* Save as Task Button */}
+                      {message.role === 'assistant' && message.interactionId && (
+                        <div className="mt-3 pt-3 border-t border-slate-600/50">
+                                  <button
+          onClick={() => {
+            setSelectedResponse({
+              content: message.content,
+              interactionId: message.interactionId!
+            });
+            setTaskModalOpen(true);
+          }}
+          className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 hover:from-orange-500/30 hover:to-red-500/30 text-orange-400 hover:text-orange-300 rounded-lg transition-colors text-sm"
+        >
+          <Plus className="w-4 h-4" />
+          Save as Action Item
+        </button>
                         </div>
                       )}
                     </div>
@@ -379,12 +393,20 @@ Use this context to provide more personalized and relevant responses, but don't 
         </div>
       </motion.div>
 
-      <ApiKeyModal
-        isOpen={showApiKeyModal}
-        onClose={() => setShowApiKeyModal(false)}
-        onSave={handleSaveApiKey}
-        currentKey={apiKey}
-      />
+      {/* Action Item Creation Modal */}
+      {selectedResponse && (
+        <CreateActionModal
+          isOpen={taskModalOpen}
+          onClose={() => {
+            setTaskModalOpen(false);
+            setSelectedResponse(null);
+          }}
+          responseContent={selectedResponse.content}
+          sessionId={currentSession || ''}
+          interactionId={selectedResponse.interactionId}
+        />
+      )}
+
     </div>
   );
 };

@@ -141,7 +141,9 @@ const Search: React.FC = () => {
         ) : filteredResults.length > 0 ? (
           <div className="space-y-4">
             {filteredResults.map((result, index) => (
-              <SearchResult key={`${result.type}-${result.item.id}`} result={result} index={index} />
+              result.item ? (
+                <SearchResult key={`${result.type}-${result.item.id}`} result={result} index={index} />
+              ) : null
             ))}
           </div>
         ) : (

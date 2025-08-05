@@ -18,10 +18,19 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://aqeel_user:aqeel_password@localhost:5432/aqeel_db',
 });
 
-// OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// OpenAI client - initialize only if API key is provided
+let openai = null;
+if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
+  try {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  } catch (error) {
+    console.warn('⚠️  OpenAI client initialization failed:', error.message);
+  }
+} else {
+  console.warn('⚠️  OpenAI API key not provided. AI features will be disabled.');
+}
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
