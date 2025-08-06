@@ -900,14 +900,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const getSessionStats = async () => {
     try {
-      if (services?.dbService) {
-        const stats = await services.dbService.getSessionStats(state.user?.id || '');
+      if (services?.dbService && state.user?.id) {
+        const stats = await services.dbService.getSessionStats(state.user.id);
         return stats;
       }
-      return {};
+      // Return empty stats if service not available or user not authenticated
+      return {
+        totalSessions: 0,
+        totalInteractions: 0,
+        avgSessionLength: 0,
+        topThemes: []
+      };
     } catch (error) {
       console.error('Error getting session stats:', error);
-      throw error;
+      // Return empty stats on error instead of throwing
+      return {
+        totalSessions: 0,
+        totalInteractions: 0,
+        avgSessionLength: 0,
+        topThemes: []
+      };
     }
   };
 

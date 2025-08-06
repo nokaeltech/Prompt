@@ -68,7 +68,7 @@ const CreateActionModal: React.FC<CreateActionModalProps> = ({ isOpen, onClose, 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md"
+            className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4 iphone-modal iphone-animation"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">

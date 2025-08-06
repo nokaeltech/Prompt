@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { ActionItem } from '../types';
 import { CheckSquare, Plus, Filter, Flag, FileText, Clock, Repeat, Sparkles, Layers } from 'lucide-react';
 import ActionItemCard from '../components/ActionItemCard';
+import MobileActionItemCard from '../components/MobileActionItemCard';
 import CreateActionModal from '../components/CreateActionModal';
 import TaskTemplateModal from '../components/TaskTemplateModal';
 
@@ -15,6 +16,17 @@ const ActionItems: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [viewMode, setViewMode] = useState<'all' | 'main-tasks' | 'subtasks'>('all');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Process action items to build hierarchical structure
   const processedItems = React.useMemo(() => {
@@ -299,7 +311,7 @@ const ActionItems: React.FC = () => {
         className="space-y-6"
       >
         {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className={isMobile ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
             {filteredItems
               .sort((a, b) => {
                 // Sort by completion status, then priority, then date
@@ -313,7 +325,11 @@ const ActionItems: React.FC = () => {
                 return b.createdAt - a.createdAt;
               })
               .map((item, index) => (
-                <ActionItemCard key={`${item.id}-${index}`} item={item} index={index} />
+                isMobile ? (
+                  <MobileActionItemCard key={`${item.id}-${index}`} item={item} index={index} />
+                ) : (
+                  <ActionItemCard key={`${item.id}-${index}`} item={item} index={index} />
+                )
               ))}
           </div>
         ) : (

@@ -1,6 +1,104 @@
+/* Import iPhone-specific optimizations */
+@import './styles/iphone.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Mobile-specific optimizations */
+@layer base {
+  /* Prevent zoom on input focus on iOS */
+  input, textarea, select {
+    font-size: 16px;
+  }
+  
+  /* Smooth scrolling for mobile */
+  html {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent horizontal scroll on mobile */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Better touch targets for mobile */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Mobile-specific utility classes */
+@layer utilities {
+  /* Safe area padding for notched devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* iPhone X+ specific safe areas */
+  .safe-area-iphone {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* Dynamic Island support */
+  .dynamic-island-safe {
+    padding-top: max(env(safe-area-inset-top), 47px);
+  }
+  
+  /* iPhone 15 Pro Max specific */
+  .iphone-15-pro-max {
+    padding-top: max(env(safe-area-inset-top), 59px);
+    padding-bottom: max(env(safe-area-inset-bottom), 34px);
+  }
+  
+  /* Bottom safe area for home indicator */
+  .home-indicator-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 34px);
+  }
+  
+  /* Mobile-optimized spacing */
+  .mobile-p-4 {
+    padding: 1rem;
+  }
+  
+  .mobile-p-6 {
+    padding: 1.5rem;
+  }
+  
+  /* Mobile-optimized text sizes */
+  .mobile-text-sm {
+    font-size: 0.875rem;
+  }
+  
+  .mobile-text-base {
+    font-size: 1rem;
+  }
+  
+  .mobile-text-lg {
+    font-size: 1.125rem;
+  }
+  
+  .mobile-text-xl {
+    font-size: 1.25rem;
+  }
+}
 
 /* Custom animation delays for loading dots */
 .animate-delay-0 {

@@ -1,0 +1,265 @@
+/* iPhone X to Latest Optimizations */
+
+/* iPhone X, XS, XS Max, 11, 11 Pro, 11 Pro Max */
+@supports (padding: max(0px)) {
+  .iphone-safe-area {
+    padding-top: max(env(safe-area-inset-top), 44px);
+    padding-bottom: max(env(safe-area-inset-bottom), 34px);
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+}
+
+/* iPhone 12, 12 Pro, 12 Pro Max, 13, 13 Pro, 13 Pro Max */
+@supports (padding: max(0px)) {
+  .iphone-12-plus-safe-area {
+    padding-top: max(env(safe-area-inset-top), 47px);
+    padding-bottom: max(env(safe-area-inset-bottom), 34px);
+  }
+}
+
+/* iPhone 14 Pro, 14 Pro Max, 15 Pro, 15 Pro Max (Dynamic Island) */
+@supports (padding: max(0px)) {
+  .iphone-14-plus-safe-area {
+    padding-top: max(env(safe-area-inset-top), 59px);
+    padding-bottom: max(env(safe-area-inset-bottom), 34px);
+  }
+  
+  .dynamic-island-area {
+    padding-top: max(env(safe-area-inset-top), 59px);
+  }
+}
+
+/* iPhone 15 Pro Max specific optimizations */
+.iphone-15-pro-max {
+  /* 6.7" display optimizations */
+  --screen-height: 932px;
+  --screen-width: 430px;
+}
+
+/* iPhone 15 Pro specific optimizations */
+.iphone-15-pro {
+  /* 6.1" display optimizations */
+  --screen-height: 852px;
+  --screen-width: 393px;
+}
+
+/* iPhone 15 Plus specific optimizations */
+.iphone-15-plus {
+  /* 6.7" display optimizations */
+  --screen-height: 932px;
+  --screen-width: 430px;
+}
+
+/* iPhone 15 specific optimizations */
+.iphone-15 {
+  /* 6.1" display optimizations */
+  --screen-height: 852px;
+  --screen-width: 393px;
+}
+
+/* Dynamic Island animations and interactions */
+.dynamic-island-interaction {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dynamic-island-interaction:hover {
+  transform: scale(1.02);
+}
+
+/* iPhone-specific touch targets */
+.iphone-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 12px;
+}
+
+/* iPhone-specific button styles */
+.iphone-button {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.iphone-button:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* iPhone-specific card styles */
+.iphone-card {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+}
+
+/* iPhone-specific modal styles */
+.iphone-modal {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(30px);
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* iPhone-specific navigation styles */
+.iphone-nav {
+  background: rgba(30, 41, 59, 0.9);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* iPhone-specific status bar styles */
+.iphone-status-bar {
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(20px);
+}
+
+/* iPhone-specific keyboard handling */
+.iphone-keyboard {
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* iPhone-specific haptic feedback zones */
+.iphone-haptic-zone {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.iphone-haptic-zone:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* iPhone-specific scroll optimizations */
+.iphone-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+/* iPhone-specific text optimizations */
+.iphone-text {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* iPhone-specific animation optimizations */
+.iphone-animation {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* iPhone-specific focus styles */
+.iphone-focus:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+  border-radius: 8px;
+}
+
+/* iPhone-specific loading states */
+.iphone-loading {
+  background: linear-gradient(90deg, 
+    rgba(148, 163, 184, 0.1) 25%, 
+    rgba(148, 163, 184, 0.2) 50%, 
+    rgba(148, 163, 184, 0.1) 75%
+  );
+  background-size: 200% 100%;
+  animation: iphone-shimmer 1.5s infinite;
+}
+
+@keyframes iphone-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* iPhone-specific responsive breakpoints */
+@media screen and (max-width: 430px) {
+  /* iPhone 15 Pro Max, 15 Plus, 14 Pro Max, 13 Pro Max, 12 Pro Max */
+  .iphone-large {
+    --container-padding: 20px;
+    --card-spacing: 16px;
+    --text-size-base: 16px;
+    --text-size-lg: 18px;
+    --text-size-xl: 20px;
+  }
+}
+
+@media screen and (max-width: 393px) {
+  /* iPhone 15 Pro, 15, 14 Pro, 13 Pro, 12 Pro */
+  .iphone-medium {
+    --container-padding: 16px;
+    --card-spacing: 12px;
+    --text-size-base: 15px;
+    --text-size-lg: 17px;
+    --text-size-xl: 19px;
+  }
+}
+
+@media screen and (max-width: 375px) {
+  /* iPhone 14, 13, 12, 11, XR */
+  .iphone-small {
+    --container-padding: 12px;
+    --card-spacing: 10px;
+    --text-size-base: 14px;
+    --text-size-lg: 16px;
+    --text-size-xl: 18px;
+  }
+}
+
+/* iPhone-specific dark mode optimizations */
+@media (prefers-color-scheme: dark) {
+  .iphone-dark {
+    --background-primary: rgba(15, 23, 42, 1);
+    --background-secondary: rgba(30, 41, 59, 0.8);
+    --text-primary: rgba(248, 250, 252, 1);
+    --text-secondary: rgba(148, 163, 184, 1);
+    --border-color: rgba(148, 163, 184, 0.2);
+  }
+}
+
+/* iPhone-specific accessibility */
+.iphone-accessibility {
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    --border-color: rgba(255, 255, 255, 0.5);
+    --text-primary: rgba(255, 255, 255, 1);
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* iPhone-specific performance optimizations */
+.iphone-performance {
+  /* Hardware acceleration */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  
+  /* Optimize for 60fps */
+  will-change: transform, opacity;
+}
+
+/* iPhone-specific gesture support */
+.iphone-gesture {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+} 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Layout from './components/Layout';
+import ResponsiveLayout from './components/ResponsiveLayout';
 import AuthModal from './components/AuthModal';
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
@@ -12,10 +12,21 @@ import Search from './pages/Search';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
 import AuthCallback from './pages/AuthCallback';
+import { mobileService } from './services/mobileService';
 
 function AppContent() {
   const { user, loading } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Initialize mobile service
+  React.useEffect(() => {
+    const initializeMobile = async () => {
+      await mobileService.initialize();
+      // Hide splash screen once app is ready
+      await mobileService.hideSplashScreen();
+    };
+    initializeMobile();
+  }, []);
 
   if (loading) {
     return (
@@ -56,7 +67,7 @@ function AppContent() {
   return (
     <AppProvider>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <Layout>
+        <ResponsiveLayout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/sessions" element={<Sessions />} />
@@ -69,7 +80,7 @@ function AppContent() {
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/reset" element={<AuthCallback />} />
           </Routes>
-        </Layout>
+        </ResponsiveLayout>
       </div>
     </AppProvider>
   );
